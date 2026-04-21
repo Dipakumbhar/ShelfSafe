@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "738826756186",
+    "project_id": "shelfsafe-ba2c8",
+    "storage_bucket": "shelfsafe-ba2c8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:738826756186:android:8c7cf896e28bba5dc1f863",
+        "android_client_info": {
+          "package_name": "com.shelfsafe"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADRnjqU5JpCCFgTsBugke7VJSrWexNxGE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
