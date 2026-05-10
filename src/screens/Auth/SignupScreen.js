@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,16 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  TouchableWithoutFeedback,
+  Keyboard,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
 import { signup } from '../../services/authService';
 import { createUserInFirestore, resolveRole } from '../../services/userService';
 import Colors from '../../constants/Colors';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const SignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -22,6 +28,9 @@ const SignupScreen = ({ navigation }) => {
   const [secureText, setSecureText] = useState(true);
   const [secureConfirm, setSecureConfirm] = useState(true);
   const [error, setError] = useState('');
+
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
 
   const getErrorMessage = (code) => {
     switch (code) {
@@ -39,6 +48,7 @@ const SignupScreen = ({ navigation }) => {
   };
 
   const handleSignup = async () => {
+    Keyboard.dismiss();
     setError('');
 
     if (!email.trim()) {
@@ -80,148 +90,163 @@ const SignupScreen = ({ navigation }) => {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled">
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.logoBox}>
-            <Text style={styles.logoText}>SS</Text>
-          </View>
-          <Text style={styles.appName}>ShelfSafe</Text>
-          <Text style={styles.tagline}>Create your account</Text>
-        </View>
-
-        {/* Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sign Up</Text>
-          <Text style={styles.cardSubtitle}>
-            Fill in your details to get started
-          </Text>
-
-          {/* Error Banner */}
-          {error !== '' && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠  {error}</Text>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : StatusBar.currentHeight || 0}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}>
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.logoBox}>
+              <Text style={styles.logoText}>SS</Text>
             </View>
-          )}
-
-          {/* Email Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. yourname@gmail.com"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={(text) => {
-                setEmail(text);
-                if (error) setError('');
-              }}
-              editable={!loading}
-            />
+            <Text style={styles.appName}>ShelfSafe</Text>
+            <Text style={styles.tagline}>Create your account</Text>
           </View>
 
-          {/* Password Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Min. 6 characters"
-                placeholderTextColor={Colors.textMuted}
-                secureTextEntry={secureText}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (error) setError('');
-                }}
-                editable={!loading}
-              />
-              <TouchableOpacity
-                onPress={() => setSecureText(!secureText)}
-                style={styles.eyeBtn}>
-                <Text style={styles.eyeText}>
-                  {secureText ? '👁' : '🙈'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Confirm Password Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Re-enter your password"
-                placeholderTextColor={Colors.textMuted}
-                secureTextEntry={secureConfirm}
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  if (error) setError('');
-                }}
-                editable={!loading}
-              />
-              <TouchableOpacity
-                onPress={() => setSecureConfirm(!secureConfirm)}
-                style={styles.eyeBtn}>
-                <Text style={styles.eyeText}>
-                  {secureConfirm ? '👁' : '🙈'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Role Hint */}
-          <View style={styles.roleHint}>
-            <Text style={styles.roleHintText}>
-              ℹ  Your role will be assigned automatically based on your email.
+          {/* Card */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Sign Up</Text>
+            <Text style={styles.cardSubtitle}>
+              Fill in your details to get started
             </Text>
-          </View>
 
-          {/* Signup Button */}
-          <TouchableOpacity
-            style={[styles.signupBtn, loading && styles.signupBtnDisabled]}
-            onPress={handleSignup}
-            disabled={loading}
-            activeOpacity={0.8}>
-            {loading ? (
-              <ActivityIndicator color={Colors.white} size="small" />
-            ) : (
-              <Text style={styles.signupBtnText}>Create Account</Text>
+            {/* Error Banner */}
+            {error !== '' && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>⚠  {error}</Text>
+              </View>
             )}
-          </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
+            {/* Email Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. yourname@gmail.com"
+                placeholderTextColor={Colors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  if (error) setError('');
+                }}
+                onSubmitEditing={() => passwordRef.current?.focus()}
+                editable={!loading}
+              />
+            </View>
+
+            {/* Password Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  ref={passwordRef}
+                  style={styles.passwordInput}
+                  placeholder="Min. 6 characters"
+                  placeholderTextColor={Colors.textMuted}
+                  secureTextEntry={secureText}
+                  returnKeyType="next"
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (error) setError('');
+                  }}
+                  onSubmitEditing={() => confirmPasswordRef.current?.focus()}
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  onPress={() => setSecureText(!secureText)}
+                  style={styles.eyeBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Text style={styles.eyeText}>
+                    {secureText ? '👁' : '🙈'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Confirm Password Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Confirm Password</Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  ref={confirmPasswordRef}
+                  style={styles.passwordInput}
+                  placeholder="Re-enter your password"
+                  placeholderTextColor={Colors.textMuted}
+                  secureTextEntry={secureConfirm}
+                  returnKeyType="go"
+                  value={confirmPassword}
+                  onChangeText={(text) => {
+                    setConfirmPassword(text);
+                    if (error) setError('');
+                  }}
+                  onSubmitEditing={handleSignup}
+                  editable={!loading}
+                />
+                <TouchableOpacity
+                  onPress={() => setSecureConfirm(!secureConfirm)}
+                  style={styles.eyeBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Text style={styles.eyeText}>
+                    {secureConfirm ? '👁' : '🙈'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Role Hint */}
+            <View style={styles.roleHint}>
+              <Text style={styles.roleHintText}>
+                ℹ  Your role will be assigned automatically based on your email.
+              </Text>
+            </View>
+
+            {/* Signup Button */}
+            <TouchableOpacity
+              style={[styles.signupBtn, loading && styles.signupBtnDisabled]}
+              onPress={handleSignup}
+              disabled={loading}
+              activeOpacity={0.8}>
+              {loading ? (
+                <ActivityIndicator color={Colors.white} size="small" />
+              ) : (
+                <Text style={styles.signupBtnText}>Create Account</Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Navigate to Login */}
+            <TouchableOpacity
+              style={styles.loginBtn}
+              onPress={() => navigation.goBack()}
+              disabled={loading}
+              activeOpacity={0.8}>
+              <Text style={styles.loginBtnText}>
+                Already have an account? Sign In
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Navigate to Login */}
-          <TouchableOpacity
-            style={styles.loginBtn}
-            onPress={() => navigation.goBack()}
-            disabled={loading}
-            activeOpacity={0.8}>
-            <Text style={styles.loginBtnText}>
-              Already have an account? Sign In
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.footer}>© 2026 ShelfSafe. All rights reserved.</Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+          <Text style={styles.footer}>© 2026 ShelfSafe. All rights reserved.</Text>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -231,11 +256,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: 'center',
     paddingHorizontal: 24,
-    paddingTop: 50,
+    paddingTop: SCREEN_HEIGHT < 700 ? 30 : 50,
     paddingBottom: 32,
     backgroundColor: Colors.primary,
   },
-  header: { alignItems: 'center', marginBottom: 28 },
+  header: { alignItems: 'center', marginBottom: SCREEN_HEIGHT < 700 ? 18 : 28 },
   logoBox: {
     width: 64,
     height: 64,

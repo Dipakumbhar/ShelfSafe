@@ -9,6 +9,9 @@ import {
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import Colors from '../../constants/Colors';
+import AppHeader from '../../components/AppHeader';
+import AnimatedScreen from '../../components/AnimatedScreen';
+import AnimatedCard from '../../components/AnimatedCard';
 
 // ---------------------------------------------------------------------------
 // Helper: get initials from email
@@ -65,82 +68,93 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <AppHeader title="My Profile" />
+      <AnimatedScreen>
+        <ScrollView contentContainerStyle={styles.container}>
 
-        {/* Avatar + User Info */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials || 'U'}</Text>
-          </View>
-          <Text style={styles.email}>{user?.email || 'Shopkeeper'}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>Shopkeeper</Text>
-          </View>
-        </View>
+          {/* Avatar + User Info */}
+          <AnimatedCard index={0}>
+            <View style={styles.profileCard}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials || 'U'}</Text>
+              </View>
+              <Text style={styles.email}>{user?.email || 'Shopkeeper'}</Text>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleText}>Shopkeeper</Text>
+              </View>
+            </View>
+          </AnimatedCard>
 
-        {/* Account Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          <View style={styles.menuCard}>
-            <MenuItem
-              icon="person"
-              label="My Profile"
-              sublabel="Edit your account details"
-              onPress={() => {}}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon="store"
-              label="My Shop"
-              sublabel="Manage shop information"
-              onPress={() => {}}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon="notifications"
-              label="Notifications"
-              sublabel="Expiry alerts and reminders"
-              onPress={() => {}}
-            />
-          </View>
-        </View>
+          {/* Account Section */}
+          <AnimatedCard index={1}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Account</Text>
+              <View style={styles.menuCard}>
+                <MenuItem
+                  icon="person"
+                  label="My Profile"
+                  sublabel="Edit your account details"
+                  onPress={() => {}}
+                />
+                <View style={styles.divider} />
+                <MenuItem
+                  icon="store"
+                  label="My Shop"
+                  sublabel="Manage shop information"
+                  onPress={() => {}}
+                />
+                <View style={styles.divider} />
+                <MenuItem
+                  icon="notifications"
+                  label="Notifications"
+                  sublabel="Expiry alerts and reminders"
+                  onPress={() => {}}
+                />
+              </View>
+            </View>
+          </AnimatedCard>
 
-        {/* App Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>App</Text>
-          <View style={styles.menuCard}>
-            <MenuItem
-              icon="shield"
-              label="Privacy Policy"
-              onPress={() => {}}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon="info"
-              label="About ShelfSafe"
-              sublabel="Version 1.0.0"
-              onPress={() => {}}
-            />
-          </View>
-        </View>
+          {/* App Section */}
+          <AnimatedCard index={2}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>App</Text>
+              <View style={styles.menuCard}>
+                <MenuItem
+                  icon="shield"
+                  label="Privacy Policy"
+                  onPress={() => {}}
+                />
+                <View style={styles.divider} />
+                <MenuItem
+                  icon="info"
+                  label="About ShelfSafe"
+                  sublabel="Version 1.0.0"
+                  onPress={() => {}}
+                />
+              </View>
+            </View>
+          </AnimatedCard>
 
-        {/* Logout */}
-        <View style={styles.section}>
-          <View style={styles.menuCard}>
-            <MenuItem
-              icon="logout"
-              label="Logout"
-              sublabel="Sign out of your account"
-              onPress={() => {
-                logout?.();
-                navigation?.navigate?.('Auth');
-              }}
-              danger
-            />
-          </View>
-        </View>
+          {/* Logout */}
+          <AnimatedCard index={3}>
+            <View style={styles.section}>
+              <View style={styles.menuCard}>
+                <MenuItem
+                  icon="logout"
+                  label="Logout"
+                  sublabel="Sign out of your account"
+                  onPress={() => {
+                    logout?.();
+                    navigation?.navigate?.('Auth');
+                  }}
+                  danger
+                />
+              </View>
+            </View>
+          </AnimatedCard>
 
-      </ScrollView>
+        </ScrollView>
+      </AnimatedScreen>
     </SafeAreaView>
   );
 };
@@ -172,7 +186,7 @@ const menuStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
-  container: { paddingBottom: 40 },
+  container: { paddingBottom: 120 },
 
   profileCard: {
     alignItems: 'center',

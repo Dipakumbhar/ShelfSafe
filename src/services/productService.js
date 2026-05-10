@@ -59,6 +59,27 @@ export const computeStatus = (expiryDateStr) => {
 };
 
 // ---------------------------------------------------------------------------
+// SNAPSHOT PROCESSOR — shared between primary and fallback listeners
+// ---------------------------------------------------------------------------
+
+/**
+ * Transform a Firestore snapshot into an array of product objects
+ * with live-computed status.
+ */
+const processSnapshot = (snapshot) => {
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    const { daysLeft, status } = computeStatus(data.expiryDate);
+    return {
+      id: doc.id,
+      ...data,
+      daysLeft,
+      status,
+    };
+  });
+};
+
+// ---------------------------------------------------------------------------
 // WRITE
 // ---------------------------------------------------------------------------
 
@@ -102,46 +123,108 @@ export const deleteProduct = async (productId) => {
 };
 
 // ---------------------------------------------------------------------------
-// READ — Real-time listener
+// READ — Real-time listener with FALLBACK for missing composite index
 // ---------------------------------------------------------------------------
 
 /**
  * Subscribe to real-time updates of products owned by a shopkeeper.
  * Returns an `unsubscribe` function to detach the listener.
  *
- * Each product object will have an `id` field (Firestore doc ID) plus
- * all stored fields. Status is recomputed on each snapshot so "expiring"
- * items automatically advance to "expired" without needing a Firestore write.
+ * **Fallback strategy:**
+ * The primary query uses `.where()` + `.orderBy()` which requires a Firestore
+ * composite index. If the index doesn't exist yet, Firestore throws
+ * `failed-precondition`. In that case we:
+ *   1. Log the index creation URL (included in the error message)
+ *   2. Fall back to a simpler query (just `.where()`) and sort client-side
  *
  * @param {string}   shopkeeperId
  * @param {Function} onData   - Called with (products: array) on every update
  * @param {Function} onError  - Called with (error) if the listener fails
  */
 export const subscribeToProducts = (shopkeeperId, onData, onError) => {
-  const unsubscribe = firestore()
-    .collection(PRODUCTS_COLLECTION)
-    .where('shopkeeperId', '==', shopkeeperId)
-    .orderBy('createdAt', 'desc')
-    .onSnapshot(
-      (snapshot) => {
-        const products = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          // Recompute live status based on today's date
-          const { daysLeft, status } = computeStatus(data.expiryDate);
-          return {
-            id: doc.id,
-            ...data,
-            daysLeft,
-            status,
-          };
-        });
-        onData(products);
-      },
-      (error) => {
-        console.error('subscribeToProducts error:', error);
-        if (onError) onError(error);
-      },
-    );
+  let unsubscribed = false;
+  let activeUnsubscribe = null;
 
-  return unsubscribe;
+  // ── Primary query: where + orderBy (requires composite index) ──
+  try {
+    activeUnsubscribe = firestore()
+      .collection(PRODUCTS_COLLECTION)
+      .where('shopkeeperId', '==', shopkeeperId)
+      .orderBy('createdAt', 'desc')
+      .onSnapshot(
+        (snapshot) => {
+          if (unsubscribed) return;
+          const products = processSnapshot(snapshot);
+          onData(products);
+        },
+        (error) => {
+          if (unsubscribed) return;
+
+          // Check for missing-index error
+          if (
+            error.code === 'firestore/failed-precondition' ||
+            error.code === 'failed-precondition'
+          ) {
+            console.warn(
+              '────────────────────────────────────────────────────────\n' +
+              '⚠️  FIRESTORE INDEX REQUIRED\n' +
+              '────────────────────────────────────────────────────────\n' +
+              'Your query needs a composite index.\n' +
+              'The error message below contains a DIRECT LINK to create it:\n\n' +
+              error.message + '\n\n' +
+              'Alternatively, go to Firebase Console → Firestore → Indexes\n' +
+              'and create a composite index on the "products" collection:\n' +
+              '  • shopkeeperId  (Ascending)\n' +
+              '  • createdAt     (Descending)\n' +
+              '────────────────────────────────────────────────────────\n' +
+              'Falling back to client-side sorting...\n',
+            );
+
+            // ── Fallback query: where only, sort client-side ──
+            activeUnsubscribe = firestore()
+              .collection(PRODUCTS_COLLECTION)
+              .where('shopkeeperId', '==', shopkeeperId)
+              .onSnapshot(
+                (fallbackSnapshot) => {
+                  if (unsubscribed) return;
+                  const products = processSnapshot(fallbackSnapshot);
+                  // Client-side sort by createdAt descending
+                  products.sort((a, b) => {
+                    const aTime = a.createdAt?.toMillis?.() || 0;
+                    const bTime = b.createdAt?.toMillis?.() || 0;
+                    return bTime - aTime;
+                  });
+                  onData(products);
+                },
+                (fallbackError) => {
+                  if (unsubscribed) return;
+                  console.error('subscribeToProducts fallback error:', fallbackError);
+                  if (onError) {
+                    onError(fallbackError);
+                  }
+                },
+              );
+          } else {
+            // Non-index error — pass through
+            console.error('subscribeToProducts error:', error);
+            if (onError) {
+              onError(error);
+            }
+          }
+        },
+      );
+  } catch (error) {
+    console.error('subscribeToProducts setup error:', error);
+    if (onError) {
+      onError(error);
+    }
+  }
+
+  // Return a cleanup function that detaches whichever listener is active
+  return () => {
+    unsubscribed = true;
+    if (activeUnsubscribe && typeof activeUnsubscribe === 'function') {
+      activeUnsubscribe();
+    }
+  };
 };

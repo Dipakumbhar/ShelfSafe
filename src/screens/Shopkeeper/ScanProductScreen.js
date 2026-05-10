@@ -3,16 +3,20 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  ActivityIndicator,
   Image,
   Alert,
 } from 'react-native';
+import { Card, ActivityIndicator } from 'react-native-paper';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { scanProduct } from '../../services/ocrService';
 import Colors from '../../constants/Colors';
+import AppHeader from '../../components/AppHeader';
+import AnimatedScreen from '../../components/AnimatedScreen';
+import AnimatedButton from '../../components/AnimatedButton';
+import AnimatedCard from '../../components/AnimatedCard';
 
 // Lazy-require so missing package does not crash the bundler
 const getCameraModule = () => {
@@ -136,221 +140,268 @@ const ScanProductScreen = ({ navigation }) => {
   // -------------------------------------------------------------------------
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        keyboardShouldPersistTaps="handled">
+      <AppHeader
+        title="Scan Product"
+        navigation={navigation}
+        showBack
+      />
+      <AnimatedScreen>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled">
 
-        {/* ── IDLE / INSTRUCTION PHASE ── */}
-        {phase === 'idle' && (
-          <>
-            <View style={styles.instructionCard}>
-              <Text style={styles.instructionIcon}>📷</Text>
-              <Text style={styles.instructionTitle}>
-                Scan Product Expiry Label
-              </Text>
-              <Text style={styles.instructionText}>
-                Position the camera so the expiry date label is clearly
-                visible and well-lit. Avoid shadows and blurring.
-              </Text>
-              <View style={styles.tipRow}>
-                <Text style={styles.tipDot}>✔</Text>
-                <Text style={styles.tipText}>
-                  Take a close-up, focused photo
-                </Text>
-              </View>
-              <View style={styles.tipRow}>
-                <Text style={styles.tipDot}>✔</Text>
-                <Text style={styles.tipText}>
-                  Ensure enough light (avoid flash glare)
-                </Text>
-              </View>
-              <View style={styles.tipRow}>
-                <Text style={styles.tipDot}>✔</Text>
-                <Text style={styles.tipText}>
-                  Look for labels like EXP, MFG, BEST BEFORE
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.scanBtn}
-              onPress={handleScan}
-              activeOpacity={0.85}>
-              <Text style={styles.scanBtnIcon}>📷</Text>
-              <Text style={styles.scanBtnText}>Scan Product</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.manualBtn}
-              onPress={() => navigation.navigate('AddProduct', {})}
-              activeOpacity={0.8}>
-              <Text style={styles.manualBtnText}>Enter Manually Instead</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* ── SCANNING PHASE ── */}
-        {phase === 'scanning' && (
-          <View style={styles.loadingCard}>
-            {imageUri && (
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.previewImage}
-                resizeMode="cover"
-              />
-            )}
-            <View style={styles.loadingContent}>
-              <ActivityIndicator size="large" color={Colors.primary} />
-              <Text style={styles.loadingTitle}>Analysing Image...</Text>
-              <Text style={styles.loadingSubtitle}>
-                Running text recognition on the label
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* ── RESULT PHASE ── */}
-        {phase === 'result' && (
-          <>
-            {/* Captured Image Preview */}
-            {imageUri && (
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.resultImage}
-                resizeMode="cover"
-              />
-            )}
-
-            {/* Error / Warning Banner */}
-            {errorMsg !== '' && (
-              <View style={styles.warnBanner}>
-                <Text style={styles.warnIcon}>⚠</Text>
-                <Text style={styles.warnText}>{errorMsg}</Text>
-              </View>
-            )}
-
-            {/* Detected Details Card */}
-            <View style={styles.resultCard}>
-              <Text style={styles.resultCardTitle}>
-                {errorMsg ? 'Enter Dates Manually' : '✅  Detected Details'}
-              </Text>
-
-              {/* Expiry Date */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Expiry Date</Text>
-                {editMode ? (
-                  <TextInput
-                    style={styles.fieldInput}
-                    value={dates.expiryDate}
-                    onChangeText={(v) =>
-                      setDates((prev) => ({ ...prev, expiryDate: v }))
-                    }
-                    placeholder="e.g. 10/05/2026 or 2026-05-10"
-                    placeholderTextColor={Colors.textMuted}
-                    autoCapitalize="characters"
-                  />
-                ) : (
-                  <View style={[styles.fieldValue, !dates.expiryDate && styles.fieldValueEmpty]}>
-                    <Text
-                      style={[
-                        styles.fieldValueText,
-                        !dates.expiryDate && styles.fieldValueTextEmpty,
-                      ]}>
-                      {dates.expiryDate || 'Not detected'}
+          {/* ── IDLE / INSTRUCTION PHASE ── */}
+          {phase === 'idle' && (
+            <>
+              <AnimatedCard index={0}>
+                <Card style={styles.instructionCard}>
+                  <Card.Content style={styles.instructionContent}>
+                    <Text style={styles.instructionIcon}>📷</Text>
+                    <Text style={styles.instructionTitle}>
+                      Scan Product Expiry Label
                     </Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Manufacturing Date */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Manufacturing Date</Text>
-                {editMode ? (
-                  <TextInput
-                    style={styles.fieldInput}
-                    value={dates.manufacturingDate}
-                    onChangeText={(v) =>
-                      setDates((prev) => ({ ...prev, manufacturingDate: v }))
-                    }
-                    placeholder="e.g. 10/02/2026 or 2026-02-10"
-                    placeholderTextColor={Colors.textMuted}
-                    autoCapitalize="characters"
-                  />
-                ) : (
-                  <View style={[styles.fieldValue, !dates.manufacturingDate && styles.fieldValueEmpty]}>
-                    <Text
-                      style={[
-                        styles.fieldValueText,
-                        !dates.manufacturingDate && styles.fieldValueTextEmpty,
-                      ]}>
-                      {dates.manufacturingDate || 'Not detected'}
+                    <Text style={styles.instructionText}>
+                      Position the camera so the expiry date label is clearly
+                      visible and well-lit. Avoid shadows and blurring.
                     </Text>
-                  </View>
+                    <View style={styles.tipRow}>
+                      <Text style={styles.tipDot}>✔</Text>
+                      <Text style={styles.tipText}>
+                        Take a close-up, focused photo
+                      </Text>
+                    </View>
+                    <View style={styles.tipRow}>
+                      <Text style={styles.tipDot}>✔</Text>
+                      <Text style={styles.tipText}>
+                        Ensure enough light (avoid flash glare)
+                      </Text>
+                    </View>
+                    <View style={styles.tipRow}>
+                      <Text style={styles.tipDot}>✔</Text>
+                      <Text style={styles.tipText}>
+                        Look for labels like EXP, MFG, BEST BEFORE
+                      </Text>
+                    </View>
+                  </Card.Content>
+                </Card>
+              </AnimatedCard>
+
+              <AnimatedCard index={1}>
+                <AnimatedButton
+                  label="Scan Product"
+                  icon="📷"
+                  mode="contained"
+                  onPress={handleScan}
+                  style={styles.scanBtn}
+                />
+              </AnimatedCard>
+
+              <AnimatedCard index={2}>
+                <AnimatedButton
+                  label="Enter Manually Instead"
+                  mode="text"
+                  onPress={() => navigation.navigate('AddProduct', {})}
+                />
+              </AnimatedCard>
+            </>
+          )}
+
+          {/* ── SCANNING PHASE ── */}
+          {phase === 'scanning' && (
+            <Animated.View entering={FadeIn.duration(400)}>
+              <Card style={styles.loadingCard}>
+                {imageUri && (
+                  <Card.Cover
+                    source={{ uri: imageUri }}
+                    style={styles.previewImage}
+                  />
                 )}
-              </View>
-            </View>
+                <Card.Content style={styles.loadingContent}>
+                  <ActivityIndicator
+                    size="large"
+                    color={Colors.primary}
+                    animating
+                  />
+                  <Text style={styles.loadingTitle}>Analysing Image...</Text>
+                  <Text style={styles.loadingSubtitle}>
+                    Running text recognition on the label
+                  </Text>
+                </Card.Content>
+              </Card>
+            </Animated.View>
+          )}
 
-            {/* Action Buttons */}
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={styles.confirmBtn}
-                onPress={handleConfirm}
-                activeOpacity={0.85}>
-                <Text style={styles.confirmBtnText}>✓  Confirm & Fill Form</Text>
-              </TouchableOpacity>
+          {/* ── RESULT PHASE ── */}
+          {phase === 'result' && (
+            <>
+              {/* Captured Image Preview */}
+              {imageUri && (
+                <Animated.View entering={FadeIn.duration(400)}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.resultImage}
+                    resizeMode="cover"
+                  />
+                </Animated.View>
+              )}
 
-              <TouchableOpacity
-                style={styles.editBtn}
-                onPress={() => setEditMode(!editMode)}
-                activeOpacity={0.8}>
-                <Text style={styles.editBtnText}>
-                  {editMode ? '✓  Done Editing' : '✏  Edit'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+              {/* Error / Warning Banner */}
+              {errorMsg !== '' && (
+                <Animated.View
+                  entering={FadeInDown.delay(100).duration(400)}
+                  style={styles.warnBanner}>
+                  <Text style={styles.warnIcon}>⚠</Text>
+                  <Text style={styles.warnText}>{errorMsg}</Text>
+                </Animated.View>
+              )}
 
-            <TouchableOpacity
-              style={styles.rescanBtn}
-              onPress={handleReset}
-              activeOpacity={0.8}>
-              <Text style={styles.rescanBtnText}>🔄  Scan Again</Text>
-            </TouchableOpacity>
-          </>
-        )}
+              {/* Detected Details Card */}
+              <Animated.View entering={FadeInDown.delay(150).duration(400)}>
+                <Card style={styles.resultCard}>
+                  <Card.Content>
+                    <Text style={styles.resultCardTitle}>
+                      {errorMsg ? 'Enter Dates Manually' : '✅  Detected Details'}
+                    </Text>
 
-        {/* ── ERROR PHASE ── */}
-        {phase === 'error' && (
-          <>
-            {imageUri && (
-              <Image
-                source={{ uri: imageUri }}
-                style={styles.resultImage}
-                resizeMode="cover"
+                    {/* Expiry Date */}
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Expiry Date</Text>
+                      {editMode ? (
+                        <TextInput
+                          style={styles.fieldInput}
+                          value={dates.expiryDate}
+                          onChangeText={(v) =>
+                            setDates((prev) => ({ ...prev, expiryDate: v }))
+                          }
+                          placeholder="e.g. 10/05/2026 or 2026-05-10"
+                          placeholderTextColor={Colors.textMuted}
+                          autoCapitalize="characters"
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.fieldValue,
+                            !dates.expiryDate && styles.fieldValueEmpty,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.fieldValueText,
+                              !dates.expiryDate && styles.fieldValueTextEmpty,
+                            ]}>
+                            {dates.expiryDate || 'Not detected'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* Manufacturing Date */}
+                    <View style={styles.fieldGroup}>
+                      <Text style={styles.fieldLabel}>Manufacturing Date</Text>
+                      {editMode ? (
+                        <TextInput
+                          style={styles.fieldInput}
+                          value={dates.manufacturingDate}
+                          onChangeText={(v) =>
+                            setDates((prev) => ({
+                              ...prev,
+                              manufacturingDate: v,
+                            }))
+                          }
+                          placeholder="e.g. 10/02/2026 or 2026-02-10"
+                          placeholderTextColor={Colors.textMuted}
+                          autoCapitalize="characters"
+                        />
+                      ) : (
+                        <View
+                          style={[
+                            styles.fieldValue,
+                            !dates.manufacturingDate && styles.fieldValueEmpty,
+                          ]}>
+                          <Text
+                            style={[
+                              styles.fieldValueText,
+                              !dates.manufacturingDate &&
+                                styles.fieldValueTextEmpty,
+                            ]}>
+                            {dates.manufacturingDate || 'Not detected'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </Card.Content>
+                </Card>
+              </Animated.View>
+
+              {/* Action Buttons */}
+              <Animated.View
+                entering={FadeInDown.delay(250).duration(400)}
+                style={styles.actionRow}>
+                <AnimatedButton
+                  label="✓ Confirm & Fill"
+                  mode="contained"
+                  onPress={handleConfirm}
+                  color={Colors.accent}
+                  style={styles.confirmBtn}
+                />
+                <AnimatedButton
+                  label={editMode ? '✓ Done' : '✏ Edit'}
+                  mode="outlined"
+                  onPress={() => setEditMode(!editMode)}
+                  style={styles.editBtn}
+                />
+              </Animated.View>
+
+              <AnimatedButton
+                label="🔄 Scan Again"
+                mode="text"
+                onPress={handleReset}
               />
-            )}
-            <View style={styles.errorCard}>
-              <Text style={styles.errorIcon}>❌</Text>
-              <Text style={styles.errorTitle}>Scan Failed</Text>
-              <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
+            </>
+          )}
 
-            <TouchableOpacity
-              style={styles.scanBtn}
-              onPress={handleReset}
-              activeOpacity={0.85}>
-              <Text style={styles.scanBtnIcon}>🔄</Text>
-              <Text style={styles.scanBtnText}>Try Again</Text>
-            </TouchableOpacity>
+          {/* ── ERROR PHASE ── */}
+          {phase === 'error' && (
+            <>
+              {imageUri && (
+                <Animated.View entering={FadeIn.duration(400)}>
+                  <Image
+                    source={{ uri: imageUri }}
+                    style={styles.resultImage}
+                    resizeMode="cover"
+                  />
+                </Animated.View>
+              )}
+              <Animated.View entering={FadeInDown.delay(100).duration(400)}>
+                <Card style={styles.errorCard}>
+                  <Card.Content style={styles.errorContent}>
+                    <Text style={styles.errorIcon}>❌</Text>
+                    <Text style={styles.errorTitle}>Scan Failed</Text>
+                    <Text style={styles.errorText}>{errorMsg}</Text>
+                  </Card.Content>
+                </Card>
+              </Animated.View>
 
-            <TouchableOpacity
-              style={styles.manualBtn}
-              onPress={() => navigation.navigate('AddProduct', {})}
-              activeOpacity={0.8}>
-              <Text style={styles.manualBtnText}>Enter Manually</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
+              <AnimatedCard index={1}>
+                <AnimatedButton
+                  label="🔄 Try Again"
+                  icon=""
+                  mode="contained"
+                  onPress={handleReset}
+                  style={styles.scanBtn}
+                />
+              </AnimatedCard>
+
+              <AnimatedCard index={2}>
+                <AnimatedButton
+                  label="Enter Manually"
+                  mode="text"
+                  onPress={() => navigation.navigate('AddProduct', {})}
+                />
+              </AnimatedCard>
+            </>
+          )}
+        </ScrollView>
+      </AnimatedScreen>
     </SafeAreaView>
   );
 };
@@ -362,18 +413,16 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   container: { padding: 16, paddingBottom: 40 },
 
-  // Instruction
+  // Instruction Card
   instructionCard: {
-    backgroundColor: Colors.white,
     borderRadius: 16,
-    padding: 22,
     marginBottom: 16,
-    alignItems: 'center',
-    shadowColor: Colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
     elevation: 3,
+    backgroundColor: Colors.white,
+  },
+  instructionContent: {
+    alignItems: 'center',
+    padding: 22,
   },
   instructionIcon: { fontSize: 48, marginBottom: 12 },
   instructionTitle: {
@@ -403,53 +452,27 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginTop: 1,
   },
-  tipText: { fontSize: 13, color: Colors.textSecondary, flex: 1, lineHeight: 19 },
+  tipText: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    flex: 1,
+    lineHeight: 19,
+  },
 
   // Scan Button
   scanBtn: {
-    backgroundColor: Colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 14,
     marginBottom: 12,
-    gap: 10,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  scanBtnIcon: { fontSize: 20 },
-  scanBtnText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
 
-  // Manual Button
-  manualBtn: { alignItems: 'center', paddingVertical: 12 },
-  manualBtnText: {
-    color: Colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-
-  // Loading
+  // Loading Card
   loadingCard: {
-    backgroundColor: Colors.white,
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 16,
-    shadowColor: Colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
     elevation: 3,
+    backgroundColor: Colors.white,
   },
-  previewImage: { width: '100%', height: 200 },
+  previewImage: { height: 200 },
   loadingContent: {
     padding: 28,
     alignItems: 'center',
@@ -496,15 +519,10 @@ const styles = StyleSheet.create({
 
   // Result Card
   resultCard: {
-    backgroundColor: Colors.white,
     borderRadius: 16,
-    padding: 20,
     marginBottom: 16,
-    shadowColor: Colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
     elevation: 3,
+    backgroundColor: Colors.white,
   },
   resultCardTitle: {
     fontSize: 15,
@@ -556,54 +574,30 @@ const styles = StyleSheet.create({
   },
 
   // Action Buttons
-  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
   confirmBtn: {
     flex: 2,
-    backgroundColor: Colors.accent,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmBtnText: {
-    color: Colors.white,
-    fontSize: 15,
-    fontWeight: '700',
   },
   editBtn: {
     flex: 1,
-    backgroundColor: Colors.white,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-  editBtnText: {
-    color: Colors.primary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  rescanBtn: {
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  rescanBtnText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    fontWeight: '600',
   },
 
   // Error Card
   errorCard: {
-    backgroundColor: '#FFF5F5',
     borderRadius: 16,
-    padding: 24,
     marginBottom: 16,
-    alignItems: 'center',
+    elevation: 0,
+    backgroundColor: '#FFF5F5',
     borderWidth: 1,
     borderColor: '#FED7D7',
+  },
+  errorContent: {
+    alignItems: 'center',
+    padding: 24,
   },
   errorIcon: { fontSize: 36, marginBottom: 10 },
   errorTitle: {

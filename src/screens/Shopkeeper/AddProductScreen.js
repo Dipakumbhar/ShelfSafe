@@ -15,6 +15,8 @@ import { scanProduct } from '../../services/ocrService';
 import { addProduct } from '../../services/productService';
 import { useAuth } from '../../context/AuthContext';
 import Colors from '../../constants/Colors';
+import AppHeader from '../../components/AppHeader';
+import AnimatedScreen from '../../components/AnimatedScreen';
 
 // ---------------------------------------------------------------------------
 // CONSTANTS
@@ -308,6 +310,12 @@ const AddProductScreen = ({ navigation, route }) => {
   // -------------------------------------------------------------------------
   return (
     <SafeAreaView style={styles.safeArea}>
+      <AppHeader
+        title="Add Product"
+        navigation={navigation}
+        showBack
+      />
+      <AnimatedScreen>
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled">
@@ -484,6 +492,7 @@ const AddProductScreen = ({ navigation, route }) => {
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
       </ScrollView>
+      </AnimatedScreen>
     </SafeAreaView>
   );
 };
