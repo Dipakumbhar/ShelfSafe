@@ -13,6 +13,8 @@ import {
 import { signup } from '../../services/authService';
 import { createUserInFirestore, resolveRole } from '../../services/userService';
 import Colors from '../../constants/Colors';
+import Icon from '../../components/Icon';
+import ICONS from '../../constants/Icons';
 
 const SignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -105,7 +107,10 @@ const SignupScreen = ({ navigation }) => {
           {/* Error Banner */}
           {error !== '' && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠  {error}</Text>
+              <View style={styles.errorContent}>
+                <Icon name={ICONS.warning} size={16} color={Colors.danger} style={styles.errorIcon} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
             </View>
           )}
 
@@ -147,9 +152,11 @@ const SignupScreen = ({ navigation }) => {
               <TouchableOpacity
                 onPress={() => setSecureText(!secureText)}
                 style={styles.eyeBtn}>
-                <Text style={styles.eyeText}>
-                  {secureText ? '👁' : '🙈'}
-                </Text>
+                <Icon
+                  name={secureText ? ICONS.visibility : ICONS.visibilityOff}
+                  size={20}
+                  color={Colors.textMuted}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -173,18 +180,23 @@ const SignupScreen = ({ navigation }) => {
               <TouchableOpacity
                 onPress={() => setSecureConfirm(!secureConfirm)}
                 style={styles.eyeBtn}>
-                <Text style={styles.eyeText}>
-                  {secureConfirm ? '👁' : '🙈'}
-                </Text>
+                <Icon
+                  name={secureConfirm ? ICONS.visibility : ICONS.visibilityOff}
+                  size={20}
+                  color={Colors.textMuted}
+                />
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Role Hint */}
           <View style={styles.roleHint}>
-            <Text style={styles.roleHintText}>
-              ℹ  Your role will be assigned automatically based on your email.
-            </Text>
+            <View style={styles.roleHintContent}>
+              <Icon name={ICONS.info} size={14} color={Colors.info} style={styles.roleHintIcon} />
+              <Text style={styles.roleHintText}>
+                Your role will be assigned automatically based on your email.
+              </Text>
+            </View>
           </View>
 
           {/* Signup Button */}
@@ -288,11 +300,19 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
+  errorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  errorIcon: {
+    marginRight: 8,
+  },
   errorText: {
     color: Colors.danger,
     fontSize: 13,
     fontWeight: '500',
     lineHeight: 18,
+    flex: 1,
   },
   inputGroup: { marginBottom: 16 },
   label: {
@@ -327,7 +347,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   eyeBtn: { paddingHorizontal: 14 },
-  eyeText: { fontSize: 18 },
   roleHint: {
     backgroundColor: '#EBF8FF',
     borderWidth: 1,
@@ -336,11 +355,19 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
+  roleHintContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  roleHintIcon: {
+    marginRight: 8,
+  },
   roleHintText: {
     color: Colors.info,
     fontSize: 12,
     fontWeight: '500',
     lineHeight: 17,
+    flex: 1,
   },
   signupBtn: {
     backgroundColor: Colors.accent,

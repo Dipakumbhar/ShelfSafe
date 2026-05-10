@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,45 +6,42 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  Switch,
+  Modal,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
+import { getUserData, updateNotificationSettings } from '../../services/userService';
+import { cancelAllAlerts } from '../../services/notificationService';
+import useProducts from '../../hooks/useProducts';
 import Colors from '../../constants/Colors';
+import Icon from '../../components/Icon';
+import ICONS from '../../constants/Icons';
 
 // ---------------------------------------------------------------------------
 // Helper: get initials from email
 // ---------------------------------------------------------------------------
-const getInitials = (email = '') => {
-  const parts = email.split('@')[0].split(/[._-]/);
-  return parts
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() || '')
-    .join('');
-};
-
-// ---------------------------------------------------------------------------
-// Lazy-load vector icons
-// ---------------------------------------------------------------------------
-const Icon = ({ name, size = 20, color = Colors.textSecondary }) => {
-  try {
-    const MaterialIcons = require('react-native-vector-icons/MaterialIcons').default;
-    return <MaterialIcons name={name} size={size} color={color} />;
-  } catch {
-    const map = {
-      'person': '👤', 'store': '🏪', 'info': 'ℹ', 'logout': '↩',
-      'chevron-right': '›', 'notifications': '🔔', 'shield': '🔒',
-    };
-    return <Text style={{ fontSize: size - 4, color }}>{map[name] || '•'}</Text>;
+const getInitials = (name, email = '') => {
+  if (name) {
+    const parts = name.trim().split(' ');
+    if (parts.length > 1) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
   }
+  const parts = email.split('@')[0].split(/[._-]/);
+  return parts.slice(0, 2).map((p) => p[0]?.toUpperCase() || '').join('');
 };
 
 // ---------------------------------------------------------------------------
 // MenuItem Component
 // ---------------------------------------------------------------------------
-const MenuItem = ({ icon, label, sublabel, onPress, danger }) => (
+const MenuItem = ({ icon, label, sublabel, onPress, danger, trailing }) => (
   <TouchableOpacity
     style={menuStyles.item}
     onPress={onPress}
-    activeOpacity={0.7}>
+    activeOpacity={0.7}
+    disabled={!onPress}>
     <View style={[menuStyles.iconBox, danger && menuStyles.iconBoxDanger]}>
       <Icon name={icon} size={20} color={danger ? Colors.danger : Colors.primary} />
     </View>
@@ -52,8 +49,30 @@ const MenuItem = ({ icon, label, sublabel, onPress, danger }) => (
       <Text style={[menuStyles.label, danger && { color: Colors.danger }]}>{label}</Text>
       {sublabel && <Text style={menuStyles.sublabel}>{sublabel}</Text>}
     </View>
-    <Icon name="chevron-right" size={22} color={Colors.textMuted} />
+    {trailing ? trailing : (onPress && <Icon name={ICONS.forward} size={22} color={Colors.textMuted} />)}
   </TouchableOpacity>
+);
+
+// ---------------------------------------------------------------------------
+// STATS WIDGET Component
+// ---------------------------------------------------------------------------
+const StatsWidget = ({ total, expiring, expired }) => (
+  <View style={statsStyles.container}>
+    <View style={statsStyles.box}>
+      <Text style={statsStyles.value}>{total}</Text>
+      <Text style={statsStyles.label}>Total Items</Text>
+    </View>
+    <View style={statsStyles.divider} />
+    <View style={statsStyles.box}>
+      <Text style={[statsStyles.value, { color: Colors.warning }]}>{expiring}</Text>
+      <Text style={statsStyles.label}>Expiring Soon</Text>
+    </View>
+    <View style={statsStyles.divider} />
+    <View style={statsStyles.box}>
+      <Text style={[statsStyles.value, { color: Colors.danger }]}>{expired}</Text>
+      <Text style={statsStyles.label}>Expired</Text>
+    </View>
+  </View>
 );
 
 // ---------------------------------------------------------------------------
@@ -61,7 +80,50 @@ const MenuItem = ({ icon, label, sublabel, onPress, danger }) => (
 // ---------------------------------------------------------------------------
 const ProfileScreen = ({ navigation }) => {
   const { user, logout } = useAuth();
-  const initials = getInitials(user?.email || 'U');
+  const { products } = useProducts();
+  const [profileData, setProfileData] = useState(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  
+  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [aboutVisible, setAboutVisible] = useState(false);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadProfile = async () => {
+        if (user?.uid) {
+          const data = await getUserData(user.uid);
+          setProfileData(data);
+          if (data?.settings?.notificationsEnabled !== undefined) {
+            setNotificationsEnabled(data.settings.notificationsEnabled);
+          }
+        }
+      };
+      loadProfile();
+    }, [user])
+  );
+
+  const handleToggleNotifications = async (val) => {
+    setNotificationsEnabled(val);
+    if (user?.uid) {
+      await updateNotificationSettings(user.uid, val);
+    }
+    // Cancel all pending alerts immediately when user disables notifications
+    if (!val) {
+      try {
+        cancelAllAlerts();
+      } catch (e) {
+        console.warn('[ProfileScreen] Failed to cancel alerts:', e);
+      }
+    }
+  };
+
+  const name = profileData?.name || '';
+  const initials = getInitials(name, user?.email || 'U');
+  const roleName = user?.role === 'admin' ? 'Admin' : 'Shopkeeper';
+
+  const totalProducts = products.length;
+  const expiringSoon = products.filter(p => p.status === 'expiring').length;
+  const expiredItems = products.filter(p => p.status === 'expired').length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -72,10 +134,16 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials || 'U'}</Text>
           </View>
-          <Text style={styles.email}>{user?.email || 'Shopkeeper'}</Text>
+          <Text style={styles.email}>{name || user?.email || 'Shopkeeper'}</Text>
+          {name ? <Text style={styles.emailSub}>{user?.email}</Text> : null}
           <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>Shopkeeper</Text>
+            <Text style={styles.roleText}>{roleName}</Text>
           </View>
+        </View>
+
+        {/* Stats */}
+        <View style={styles.section}>
+          <StatsWidget total={totalProducts} expiring={expiringSoon} expired={expiredItems} />
         </View>
 
         {/* Account Section */}
@@ -83,24 +151,30 @@ const ProfileScreen = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.menuCard}>
             <MenuItem
-              icon="person"
+              icon={ICONS.profile}
               label="My Profile"
               sublabel="Edit your account details"
-              onPress={() => {}}
+              onPress={() => navigation.navigate('EditProfile')}
             />
             <View style={styles.divider} />
             <MenuItem
-              icon="store"
+              icon={ICONS.shop}
               label="My Shop"
               sublabel="Manage shop information"
-              onPress={() => {}}
+              onPress={() => navigation.navigate('MyShop')}
             />
             <View style={styles.divider} />
             <MenuItem
-              icon="notifications"
+              icon={ICONS.notifications}
               label="Notifications"
               sublabel="Expiry alerts and reminders"
-              onPress={() => {}}
+              trailing={
+                <Switch
+                  value={notificationsEnabled}
+                  onValueChange={handleToggleNotifications}
+                  trackColor={{ false: Colors.border, true: Colors.primary }}
+                />
+              }
             />
           </View>
         </View>
@@ -110,16 +184,16 @@ const ProfileScreen = ({ navigation }) => {
           <Text style={styles.sectionTitle}>App</Text>
           <View style={styles.menuCard}>
             <MenuItem
-              icon="shield"
+              icon={ICONS.privacy}
               label="Privacy Policy"
-              onPress={() => {}}
+              onPress={() => setPrivacyVisible(true)}
             />
             <View style={styles.divider} />
             <MenuItem
-              icon="info"
+              icon={ICONS.about}
               label="About ShelfSafe"
               sublabel="Version 1.0.0"
-              onPress={() => {}}
+              onPress={() => setAboutVisible(true)}
             />
           </View>
         </View>
@@ -128,12 +202,11 @@ const ProfileScreen = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.menuCard}>
             <MenuItem
-              icon="logout"
+              icon={ICONS.logout}
               label="Logout"
               sublabel="Sign out of your account"
               onPress={() => {
                 logout?.();
-                navigation?.navigate?.('Auth');
               }}
               danger
             />
@@ -141,6 +214,36 @@ const ProfileScreen = ({ navigation }) => {
         </View>
 
       </ScrollView>
+
+      {/* Privacy Policy Modal */}
+      <Modal visible={privacyVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setPrivacyVisible(false)}>
+        <SafeAreaView style={modalStyles.container}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>Privacy Policy</Text>
+            <TouchableOpacity onPress={() => setPrivacyVisible(false)}><Icon name="close" size={24} color={Colors.textPrimary} /></TouchableOpacity>
+          </View>
+          <ScrollView style={modalStyles.body}>
+            <Text style={modalStyles.text}>Your privacy is important to us. ShelfSafe collects and stores product and store information in Firestore to provide you with seamless inventory management and push notifications...</Text>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
+      {/* About Modal */}
+      <Modal visible={aboutVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setAboutVisible(false)}>
+        <SafeAreaView style={modalStyles.container}>
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title}>About ShelfSafe</Text>
+            <TouchableOpacity onPress={() => setAboutVisible(false)}><Icon name="close" size={24} color={Colors.textPrimary} /></TouchableOpacity>
+          </View>
+          <View style={modalStyles.bodyCenter}>
+            <View style={modalStyles.logoBox}><Text style={modalStyles.logoText}>SS</Text></View>
+            <Text style={modalStyles.appName}>ShelfSafe</Text>
+            <Text style={modalStyles.appVersion}>Version 1.0.0</Text>
+            <Text style={modalStyles.appDesc}>The smart way to manage your expiry inventory and prevent waste.</Text>
+          </View>
+        </SafeAreaView>
+      </Modal>
+
     </SafeAreaView>
   );
 };
@@ -170,6 +273,39 @@ const menuStyles = StyleSheet.create({
   sublabel: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
 });
 
+const statsStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginHorizontal: 16,
+    shadowColor: Colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  box: { flex: 1, alignItems: 'center' },
+  divider: { width: 1, backgroundColor: Colors.border, marginVertical: 4 },
+  value: { fontSize: 20, fontWeight: '800', color: Colors.primary, marginBottom: 4 },
+  label: { fontSize: 11, color: Colors.textMuted, fontWeight: '600', textTransform: 'uppercase' },
+});
+
+const modalStyles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: Colors.divider, backgroundColor: Colors.white },
+  title: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  body: { padding: 20 },
+  text: { fontSize: 15, color: Colors.textSecondary, lineHeight: 22 },
+  bodyCenter: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  logoBox: { width: 80, height: 80, borderRadius: 20, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  logoText: { fontSize: 32, fontWeight: '800', color: Colors.white },
+  appName: { fontSize: 24, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 },
+  appVersion: { fontSize: 14, color: Colors.textMuted, marginBottom: 12 },
+  appDesc: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+});
+
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   container: { paddingBottom: 40 },
@@ -180,6 +316,8 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 28,
     marginBottom: 0,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   avatar: {
     width: 80,
@@ -204,7 +342,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: Colors.white,
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  emailSub: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 10,
   },
   roleBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',
@@ -213,6 +356,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
+    marginTop: 8,
   },
   roleText: {
     color: Colors.white,

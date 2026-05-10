@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { MOCK_SHOPS, MOCK_PRODUCTS } from '../../constants/MockData';
 import Colors from '../../constants/Colors';
+import Icon from '../../components/Icon';
+import ICONS from '../../constants/Icons';
 
 const InfoRow = ({ label, value, valueColor }) => (
   <View style={styles.infoRow}>
@@ -40,17 +42,22 @@ const ShopDetailScreen = ({ route, navigation }) => {
     expired: { color: Colors.danger, bg: '#FDECEA', label: 'Expired' },
   };
 
+  const isCompliant = shop.expiredItems === 0;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
         {/* Shop Banner */}
         <View style={styles.banner}>
           <View style={styles.shopIconBox}>
-            <Text style={styles.shopIcon}>🏪</Text>
+            <Icon name={ICONS.shop} size={32} color={Colors.white} />
           </View>
           <Text style={styles.shopName}>{shop.name}</Text>
           <Text style={styles.shopOwner}>Owner: {shop.owner}</Text>
-          <Text style={styles.shopLocation}>📍 {shop.location}</Text>
+          <View style={styles.locationRow}>
+            <Icon name={ICONS.location} size={14} color="rgba(255,255,255,0.6)" style={styles.locationIcon} />
+            <Text style={styles.shopLocation}>{shop.location}</Text>
+          </View>
           <Text style={styles.shopId}>Shop ID: {shop.id}</Text>
         </View>
 
@@ -75,14 +82,24 @@ const ShopDetailScreen = ({ route, navigation }) => {
           <Text style={styles.cardTitle}>Compliance Status</Text>
           <View style={[
             styles.complianceBadge,
-            { backgroundColor: shop.expiredItems === 0 ? '#EBF9F1' : '#FDECEA' },
+            { backgroundColor: isCompliant ? '#EBF9F1' : '#FDECEA' },
           ]}>
-            <Text style={[
-              styles.complianceText,
-              { color: shop.expiredItems === 0 ? Colors.accent : Colors.danger },
-            ]}>
-              {shop.expiredItems === 0 ? '✓ Compliant — No expired items' : `✗ Non-Compliant — ${shop.expiredItems} expired items found`}
-            </Text>
+            <View style={styles.complianceContent}>
+              <Icon
+                name={isCompliant ? ICONS.complianceOK : ICONS.complianceFail}
+                size={18}
+                color={isCompliant ? Colors.accent : Colors.danger}
+                style={styles.complianceIcon}
+              />
+              <Text style={[
+                styles.complianceText,
+                { color: isCompliant ? Colors.accent : Colors.danger },
+              ]}>
+                {isCompliant
+                  ? 'Compliant — No expired items'
+                  : `Non-Compliant — ${shop.expiredItems} expired items found`}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -109,15 +126,18 @@ const ShopDetailScreen = ({ route, navigation }) => {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Admin Actions</Text>
           <TouchableOpacity style={styles.actionBtn}>
-            <Text style={styles.actionBtnText}>📤  Send Compliance Warning</Text>
+            <Icon name={ICONS.send} size={16} color={Colors.white} style={styles.actionBtnIcon} />
+            <Text style={styles.actionBtnText}>Send Compliance Warning</Text>
           </TouchableOpacity>
           <TouchableOpacity style={[styles.actionBtn, styles.actionBtnOutline]}>
-            <Text style={[styles.actionBtnText, { color: Colors.primary }]}>📋  Generate Report</Text>
+            <Icon name={ICONS.generateReport} size={16} color={Colors.primary} style={styles.actionBtnIcon} />
+            <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Generate Report</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtnText}>← Back to Dashboard</Text>
+          <Icon name={ICONS.back} size={16} color={Colors.textSecondary} style={styles.backBtnIcon} />
+          <Text style={styles.backBtnText}>Back to Dashboard</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -143,10 +163,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  shopIcon: { fontSize: 32 },
   shopName: { color: Colors.white, fontSize: 22, fontWeight: '800' },
   shopOwner: { color: 'rgba(255,255,255,0.75)', fontSize: 14, marginTop: 4 },
-  shopLocation: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 4 },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  locationIcon: {
+    marginRight: 4,
+  },
+  shopLocation: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
   shopId: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 11,
@@ -181,7 +208,15 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 14, fontWeight: '700', color: Colors.primary, marginBottom: 14 },
   complianceBadge: { borderRadius: 10, padding: 14 },
-  complianceText: { fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  complianceContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  complianceIcon: {
+    marginRight: 8,
+  },
+  complianceText: { fontSize: 14, fontWeight: '700' },
   productRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -196,10 +231,12 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: Colors.primary,
     paddingVertical: 13,
     borderRadius: 10,
-    alignItems: 'center',
     marginBottom: 10,
   },
   actionBtnOutline: {
@@ -207,8 +244,19 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.primary,
   },
+  actionBtnIcon: {
+    marginRight: 8,
+  },
   actionBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
-  backBtn: { alignItems: 'center', paddingVertical: 10 },
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+  },
+  backBtnIcon: {
+    marginRight: 6,
+  },
   backBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
   notFound: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   notFoundText: { color: Colors.textMuted, fontSize: 16 },

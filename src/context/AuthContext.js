@@ -42,6 +42,10 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      // Cancel all scheduled expiry notifications before signing out
+      const { cancelAllAlerts } = require('../services/notificationService');
+      cancelAllAlerts();
+
       await firebaseLogout();
       // onAuthStateChanged will automatically set user to null
     } catch (error) {

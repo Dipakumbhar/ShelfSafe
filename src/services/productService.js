@@ -1,5 +1,9 @@
 // src/services/productService.js
 import firestore from '@react-native-firebase/firestore';
+import {
+  scheduleExpiryAlert,
+  cancelProductAlert,
+} from './notificationService';
 
 const PRODUCTS_COLLECTION = 'products';
 
@@ -14,6 +18,16 @@ const PRODUCTS_COLLECTION = 'products';
 export const parseExpiryDate = (dateStr = '') => {
   if (!dateStr) return null;
   const trimmed = dateStr.trim();
+
+  // Full ISO datetime string: 2024-12-31T00:00:00.000Z — extract date part
+  const isoDatetimeMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+  if (isoDatetimeMatch) {
+    return new Date(
+      Number(isoDatetimeMatch[1]),
+      Number(isoDatetimeMatch[2]) - 1,
+      Number(isoDatetimeMatch[3]),
+    );
+  }
 
   // YYYY-MM-DD
   const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -66,11 +80,12 @@ export const computeStatus = (expiryDateStr) => {
  * Add a new product to Firestore.
  * The product is linked to the shopkeeper via their Firebase Auth UID.
  *
- * @param {string} shopkeeperId - Firebase Auth UID of the logged-in shopkeeper
- * @param {object} formData     - Form fields from AddProductScreen
- * @returns {Promise<string>}   - The new document's Firestore ID
+ * @param {string}  shopkeeperId         - Firebase Auth UID
+ * @param {object}  formData             - Form fields from AddProductScreen
+ * @param {boolean} [notificationsEnabled=true] - User notification preference
+ * @returns {Promise<{id: string, notifResult: string}>}
  */
-export const addProduct = async (shopkeeperId, formData) => {
+export const addProduct = async (shopkeeperId, formData, notificationsEnabled = true) => {
   const { daysLeft, status } = computeStatus(formData.expiryDate);
 
   const payload = {
@@ -78,11 +93,11 @@ export const addProduct = async (shopkeeperId, formData) => {
     name: formData.name.trim(),
     category: formData.category,
     quantity: formData.quantity,
-    unit: formData.unit.trim(),
-    batchNo: formData.batchNo.trim(),
-    expiryDate: formData.expiryDate.trim(),
-    manufacturingDate: formData.manufacturingDate.trim(),
-    notes: formData.notes.trim(),
+    unit: (formData.unit || '').trim(),
+    batchNo: (formData.batchNo || '').trim(),
+    expiryDate: (formData.expiryDate || '').trim(),
+    manufacturingDate: formData.manufacturingDate ? formData.manufacturingDate.trim() : '',
+    notes: (formData.notes || '').trim(),
     status,
     daysLeft,
     createdAt: firestore.FieldValue.serverTimestamp(),
@@ -90,7 +105,21 @@ export const addProduct = async (shopkeeperId, formData) => {
   };
 
   const docRef = await firestore().collection(PRODUCTS_COLLECTION).add(payload);
-  return docRef.id;
+
+  // Schedule expiry notification — non-blocking
+  let notifResult = 'skipped_disabled';
+  try {
+    notifResult = scheduleExpiryAlert({
+      productId: docRef.id,
+      productName: payload.name,
+      expiryDate: payload.expiryDate,
+      notificationsEnabled,
+    });
+  } catch (notifErr) {
+    console.warn('[productService] Failed to schedule notification:', notifErr);
+  }
+
+  return { id: docRef.id, notifResult };
 };
 
 /**
@@ -99,6 +128,56 @@ export const addProduct = async (shopkeeperId, formData) => {
  */
 export const deleteProduct = async (productId) => {
   await firestore().collection(PRODUCTS_COLLECTION).doc(productId).delete();
+
+  // Cancel any scheduled notification for this product
+  try {
+    cancelProductAlert(productId);
+  } catch (notifErr) {
+    console.warn('[productService] Failed to cancel notification:', notifErr);
+  }
+};
+
+/**
+ * Updates an existing product in Firestore.
+ *
+ * @param {string}  productId            - Firestore doc ID
+ * @param {object}  formData             - Updated form fields
+ * @param {boolean} [notificationsEnabled=true] - User notification preference
+ * @returns {Promise<string>} notifResult
+ */
+export const updateProduct = async (productId, formData, notificationsEnabled = true) => {
+  const { daysLeft, status } = computeStatus(formData.expiryDate);
+
+  const payload = {
+    name: formData.name.trim(),
+    category: formData.category,
+    quantity: formData.quantity,
+    unit: (formData.unit || '').trim(),
+    batchNo: (formData.batchNo || '').trim(),
+    expiryDate: (formData.expiryDate || '').trim(),
+    manufacturingDate: formData.manufacturingDate ? formData.manufacturingDate.trim() : '',
+    notes: (formData.notes || '').trim(),
+    status,
+    daysLeft,
+    updatedAt: firestore.FieldValue.serverTimestamp(),
+  };
+
+  await firestore().collection(PRODUCTS_COLLECTION).doc(productId).update(payload);
+
+  // Re-schedule expiry notification — non-blocking
+  let notifResult = 'skipped_disabled';
+  try {
+    notifResult = scheduleExpiryAlert({
+      productId,
+      productName: payload.name,
+      expiryDate: payload.expiryDate,
+      notificationsEnabled,
+    });
+  } catch (notifErr) {
+    console.warn('[productService] Failed to re-schedule notification:', notifErr);
+  }
+
+  return notifResult;
 };
 
 // ---------------------------------------------------------------------------

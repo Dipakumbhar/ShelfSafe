@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { login } from '../../services/authService';
 import Colors from '../../constants/Colors';
+import Icon from '../../components/Icon';
+import ICONS from '../../constants/Icons';
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -88,7 +90,10 @@ const LoginScreen = ({ navigation }) => {
           {/* Error Banner */}
           {error !== '' && (
             <View style={styles.errorBox}>
-              <Text style={styles.errorText}>⚠  {error}</Text>
+              <View style={styles.errorContent}>
+                <Icon name={ICONS.warning} size={16} color={Colors.danger} style={styles.errorIcon} />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
             </View>
           )}
 
@@ -130,9 +135,11 @@ const LoginScreen = ({ navigation }) => {
               <TouchableOpacity
                 onPress={() => setSecureText(!secureText)}
                 style={styles.eyeBtn}>
-                <Text style={styles.eyeText}>
-                  {secureText ? '👁' : '🙈'}
-                </Text>
+                <Icon
+                  name={secureText ? ICONS.visibility : ICONS.visibilityOff}
+                  size={20}
+                  color={Colors.textMuted}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -236,11 +243,19 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 16,
   },
+  errorContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  errorIcon: {
+    marginRight: 8,
+  },
   errorText: {
     color: Colors.danger,
     fontSize: 13,
     fontWeight: '500',
     lineHeight: 18,
+    flex: 1,
   },
   inputGroup: { marginBottom: 16 },
   label: {
@@ -275,7 +290,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   eyeBtn: { paddingHorizontal: 14 },
-  eyeText: { fontSize: 18 },
   loginBtn: {
     backgroundColor: Colors.primary,
     paddingVertical: 14,
