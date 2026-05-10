@@ -2,7 +2,6 @@ import React, { useRef } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Animated,
   Platform,
@@ -10,22 +9,18 @@ import {
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Colors from '../constants/Colors';
+import Icon from '../components/Icon';
+import ICONS from '../constants/Icons';
 
 // Screens
 import DashboardScreen from '../screens/Shopkeeper/DashboardScreen';
 import ProductListScreen from '../screens/Shopkeeper/ProductListScreen';
 import AddProductScreen from '../screens/Shopkeeper/AddProductScreen';
+import EditProductScreen from '../screens/Shopkeeper/EditProductScreen';
 import ScanProductScreen from '../screens/Shopkeeper/ScanProductScreen';
 import ProfileScreen from '../screens/Shopkeeper/ProfileScreen';
-
-// ─── Lazy Vector Icons ────────────────────────────────────────────────────────
-const getMatIcon = () => {
-  try {
-    return require('react-native-vector-icons/MaterialIcons').default;
-  } catch {
-    return null;
-  }
-};
+import EditProfileScreen from '../screens/Shopkeeper/EditProfileScreen';
+import MyShopScreen from '../screens/Shopkeeper/MyShopScreen';
 
 // ─── TAB ICON COMPONENT ───────────────────────────────────────────────────────
 const TabIcon = ({ iconName, label, focused, isCenter }) => {
@@ -41,21 +36,12 @@ const TabIcon = ({ iconName, label, focused, isCenter }) => {
     }).start();
   }, [focused, scaleAnim]);
 
-  const MatIcon = getMatIcon();
   const iconColor = isCenter
     ? Colors.white
     : focused
     ? Colors.primary
     : Colors.textMuted;
   const iconSize = isCenter ? 28 : 24;
-
-  const iconEl = MatIcon ? (
-    <MatIcon name={iconName} size={iconSize} color={iconColor} />
-  ) : (
-    <Text style={{ fontSize: iconSize - 6, color: iconColor }}>
-      {{ dashboard: '🏠', inventory: '📦', 'add-circle': '➕', person: '👤' }[iconName] || '•'}
-    </Text>
-  );
 
   if (isCenter) {
     return (
@@ -65,7 +51,7 @@ const TabIcon = ({ iconName, label, focused, isCenter }) => {
           { transform: [{ scale: scaleAnim }] },
           focused && tabStyles.centerBtnFocused,
         ]}>
-        {iconEl}
+        <Icon name={iconName} size={iconSize} color={iconColor} />
       </Animated.View>
     );
   }
@@ -73,7 +59,7 @@ const TabIcon = ({ iconName, label, focused, isCenter }) => {
   return (
     <Animated.View
       style={[tabStyles.tabIconWrap, { transform: [{ scale: scaleAnim }] }]}>
-      {iconEl}
+      <Icon name={iconName} size={iconSize} color={iconColor} />
       {focused && <View style={tabStyles.activeDot} />}
     </Animated.View>
   );
@@ -92,6 +78,7 @@ const ProductsStack = () => (
   <ProdStack.Navigator screenOptions={stackOptions}>
     <ProdStack.Screen name="ProductListScreen" component={ProductListScreen} options={{ title: 'Product Inventory' }} />
     <ProdStack.Screen name="AddProduct" component={AddProductScreen} options={{ title: 'Add New Product' }} />
+    <ProdStack.Screen name="EditProduct" component={EditProductScreen} options={{ title: 'Edit Product' }} />
     <ProdStack.Screen name="ScanProduct" component={ScanProductScreen} options={{ title: 'Scan Product Label' }} />
   </ProdStack.Navigator>
 );
@@ -107,6 +94,8 @@ const ProfileStack = createNativeStackNavigator();
 const ProfileStackNavigator = () => (
   <ProfileStack.Navigator screenOptions={stackOptions}>
     <ProfileStack.Screen name="ProfileScreen" component={ProfileScreen} options={{ title: 'My Profile' }} />
+    <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit Profile' }} />
+    <ProfileStack.Screen name="MyShop" component={MyShopScreen} options={{ title: 'My Shop Details' }} />
   </ProfileStack.Navigator>
 );
 
@@ -141,7 +130,7 @@ const TabNavigator = () => {
         options={{
           tabBarLabel: 'Dashboard',
           tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="dashboard" label="Dashboard" focused={focused} />
+            <TabIcon iconName={ICONS.dashboard} label="Dashboard" focused={focused} />
           ),
         }}
       />
@@ -152,7 +141,7 @@ const TabNavigator = () => {
         options={{
           tabBarLabel: 'Products',
           tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="inventory" label="Products" focused={focused} />
+            <TabIcon iconName={ICONS.products} label="Products" focused={focused} />
           ),
         }}
       />
@@ -164,7 +153,7 @@ const TabNavigator = () => {
         options={{
           tabBarLabel: '',
           tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="add-circle" label="" focused={focused} isCenter />
+            <TabIcon iconName={ICONS.add} label="" focused={focused} isCenter />
           ),
           tabBarItemStyle: tabStyles.centerItem,
         }}
@@ -176,7 +165,7 @@ const TabNavigator = () => {
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ focused }) => (
-            <TabIcon iconName="person" label="Profile" focused={focused} />
+            <TabIcon iconName={ICONS.profile} label="Profile" focused={focused} />
           ),
         }}
       />

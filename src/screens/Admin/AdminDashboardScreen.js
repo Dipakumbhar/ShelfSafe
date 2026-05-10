@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,27 +11,32 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { MOCK_SHOPS } from '../../constants/MockData';
 import Colors from '../../constants/Colors';
+import Icon from '../../components/Icon';
+import ICONS from '../../constants/Icons';
 
-const OverviewCard = ({ label, value, color, icon }) => (
+const OverviewCard = React.memo(({ label, value, color, icon }) => (
   <View style={[styles.overviewCard, { borderLeftColor: color }]}>
-    <Text style={styles.overviewIcon}>{icon}</Text>
+    <Icon name={icon} size={20} color={color} style={styles.overviewIconStyle} />
     <Text style={[styles.overviewValue, { color }]}>{value}</Text>
     <Text style={styles.overviewLabel}>{label}</Text>
   </View>
-);
+));
 
-const ShopCard = ({ item, onPress }) => {
+const ShopCard = React.memo(({ item, onPress }) => {
   const hasIssues = item.expiredItems > 0 || item.expiringItems > 0;
   return (
     <TouchableOpacity style={styles.shopCard} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.shopCardHeader}>
         <View style={styles.shopIconBox}>
-          <Text style={styles.shopIcon}>🏪</Text>
+          <Icon name={ICONS.shop} size={22} color={Colors.primary} />
         </View>
         <View style={styles.shopInfo}>
           <Text style={styles.shopName}>{item.name}</Text>
           <Text style={styles.shopOwner}>{item.owner}</Text>
-          <Text style={styles.shopLocation}>📍 {item.location}</Text>
+          <View style={styles.locationRow}>
+            <Icon name={ICONS.location} size={12} color={Colors.textMuted} style={styles.locationIcon} />
+            <Text style={styles.shopLocation}>{item.location}</Text>
+          </View>
         </View>
         {hasIssues && (
           <View style={styles.alertDot} />
@@ -51,10 +56,13 @@ const ShopCard = ({ item, onPress }) => {
           <Text style={styles.shopStatLabel}>Expired</Text>
         </View>
       </View>
-      <Text style={styles.viewDetail}>View Details  →</Text>
+      <View style={styles.viewDetailRow}>
+        <Text style={styles.viewDetail}>View Details</Text>
+        <Icon name={ICONS.forward} size={16} color={Colors.primary} />
+      </View>
     </TouchableOpacity>
   );
-};
+});
 
 const AdminDashboardScreen = ({ navigation }) => {
   const { user, logout } = useAuth();
@@ -62,6 +70,15 @@ const AdminDashboardScreen = ({ navigation }) => {
   const totalProducts = MOCK_SHOPS.reduce((s, sh) => s + sh.totalProducts, 0);
   const totalExpired = MOCK_SHOPS.reduce((s, sh) => s + sh.expiredItems, 0);
   const totalExpiring = MOCK_SHOPS.reduce((s, sh) => s + sh.expiringItems, 0);
+
+  const renderShopItem = useCallback(({ item }) => (
+    <ShopCard
+      item={item}
+      onPress={() => navigation.navigate('ShopDetail', { shopId: item.id })}
+    />
+  ), [navigation]);
+
+  const keyExtractor = useCallback((item) => item.id, []);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -74,6 +91,7 @@ const AdminDashboardScreen = ({ navigation }) => {
             <Text style={styles.adminEmail}>{user?.email}</Text>
           </View>
           <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+            <Icon name={ICONS.logout} size={14} color={Colors.white} style={styles.logoutIcon} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -81,20 +99,19 @@ const AdminDashboardScreen = ({ navigation }) => {
         {/* Platform Overview */}
         <Text style={styles.sectionTitle}>Platform Overview</Text>
         <View style={styles.overviewRow}>
-          <OverviewCard label="Shops" value={MOCK_SHOPS.length} color={Colors.primary} icon="🏪" />
-          <OverviewCard label="Products" value={totalProducts} color={Colors.info} icon="📦" />
-          <OverviewCard label="Alerts" value={totalExpired + totalExpiring} color={Colors.danger} icon="⚠️" />
+          <OverviewCard label="Shops" value={MOCK_SHOPS.length} color={Colors.primary} icon={ICONS.shop} />
+          <OverviewCard label="Products" value={totalProducts} color={Colors.info} icon={ICONS.products} />
+          <OverviewCard label="Alerts" value={totalExpired + totalExpiring} color={Colors.danger} icon={ICONS.warning} />
         </View>
 
         {/* Shops List */}
         <Text style={styles.sectionTitle}>Registered Shops</Text>
-        {MOCK_SHOPS.map((shop) => (
-          <ShopCard
-            key={shop.id}
-            item={shop}
-            onPress={() => navigation.navigate('ShopDetail', { shopId: shop.id })}
-          />
-        ))}
+        <FlatList
+          data={MOCK_SHOPS}
+          keyExtractor={keyExtractor}
+          renderItem={renderShopItem}
+          scrollEnabled={false}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -122,12 +139,17 @@ const styles = StyleSheet.create({
   adminName: { color: Colors.white, fontSize: 20, fontWeight: '700' },
   adminEmail: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 },
   logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
+  },
+  logoutIcon: {
+    marginRight: 6,
   },
   logoutText: { color: Colors.white, fontSize: 13, fontWeight: '600' },
   sectionTitle: {
@@ -151,7 +173,7 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
-  overviewIcon: { fontSize: 20, marginBottom: 6 },
+  overviewIconStyle: { marginBottom: 6 },
   overviewValue: { fontSize: 22, fontWeight: '800' },
   overviewLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
   shopCard: {
@@ -175,11 +197,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 12,
   },
-  shopIcon: { fontSize: 22 },
   shopInfo: { flex: 1 },
   shopName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   shopOwner: { fontSize: 13, color: Colors.textSecondary, marginTop: 1 },
-  shopLocation: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  locationIcon: {
+    marginRight: 3,
+  },
+  shopLocation: { fontSize: 12, color: Colors.textMuted },
   alertDot: {
     width: 10,
     height: 10,
@@ -198,11 +227,16 @@ const styles = StyleSheet.create({
   shopStat: { alignItems: 'center' },
   shopStatVal: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
   shopStatLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
+  viewDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   viewDetail: {
-    textAlign: 'right',
     fontSize: 13,
     color: Colors.primary,
     fontWeight: '700',
+    marginRight: 4,
   },
 });
 

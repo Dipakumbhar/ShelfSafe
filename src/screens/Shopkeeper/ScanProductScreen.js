@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,46 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Platform,
+  PermissionsAndroid,
 } from 'react-native';
 import { scanProduct } from '../../services/ocrService';
 import Colors from '../../constants/Colors';
+import Icon from '../../components/Icon';
+import ICONS from '../../constants/Icons';
 
 // Lazy-require so missing package does not crash the bundler
 const getCameraModule = () => {
   try {
     const { launchCamera } = require('react-native-image-picker');
+    if (typeof launchCamera !== 'function') return null;
     return launchCamera;
   } catch {
     return null;
+  }
+};
+
+// Request camera permission on Android at runtime
+const requestCameraPermission = async () => {
+  if (Platform.OS !== 'android') return true;
+  try {
+    const results = await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.CAMERA,
+    ]);
+    const granted =
+      results[PermissionsAndroid.PERMISSIONS.CAMERA] ===
+      PermissionsAndroid.RESULTS.GRANTED;
+    if (!granted) {
+      Alert.alert(
+        'Permission Required',
+        'Camera permission is required to scan product labels.\nPlease enable it in Settings.',
+        [{ text: 'OK' }],
+      );
+    }
+    return granted;
+  } catch (err) {
+    console.warn('[ScanProductScreen] Permission error:', err);
+    return false;
   }
 };
 
@@ -28,7 +57,7 @@ const getCameraModule = () => {
 // STATES: idle → capturing → scanning → result | error
 // ---------------------------------------------------------------------------
 
-const INITIAL_DATES = { expiryDate: '', manufacturingDate: '' };
+const INITIAL_DATES = { expiryDate: '', manufacturingDate: '', rawText: '' };
 
 const ScanProductScreen = ({ navigation }) => {
   const [phase, setPhase] = useState('idle'); // idle | scanning | result | error
@@ -36,36 +65,47 @@ const ScanProductScreen = ({ navigation }) => {
   const [dates, setDates] = useState(INITIAL_DATES);
   const [editMode, setEditMode] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [showRawText, setShowRawText] = useState(false);
 
   // -------------------------------------------------------------------------
   // Camera capture
   // -------------------------------------------------------------------------
-  const handleScan = async () => {
+  // Promise-based scan (react-native-image-picker v8+)
+  const handleScan = useCallback(async () => {
     const launchCamera = getCameraModule();
     if (!launchCamera) {
       Alert.alert(
         'Package Not Installed',
-        'Camera scanning requires:\n\nnpm install react-native-image-picker @react-native-ml-kit/text-recognition\n\nAfter installing, rebuild the app.',
+        'Camera scanning requires react-native-image-picker and @react-native-ml-kit/text-recognition.\nPlease rebuild the app after installing.',
         [{ text: 'OK' }],
       );
       return;
     }
 
-    const options = {
-      mediaType: 'photo',
-      quality: 0.9,
-      saveToPhotos: false,
-      includeBase64: false,
-    };
+    // Runtime permission on Android
+    const hasPermission = await requestCameraPermission();
+    if (!hasPermission) return;
 
-    launchCamera(options, async (response) => {
-      if (response.didCancel) {
-        return;
-      }
+    try {
+      // No callback → forces Promise mode in v8+
+      const response = await launchCamera({
+        mediaType: 'photo',
+        quality: 1.0,          // Maximum quality for best OCR accuracy
+        saveToPhotos: false,
+        includeBase64: false,
+        maxWidth: 2048,        // Cap resolution — large enough for OCR, not too heavy
+        maxHeight: 2048,
+        cameraType: 'back',    // Always use rear camera for label scanning
+      });
+
+      if (response.didCancel) return;
+
       if (response.errorCode) {
         Alert.alert(
           'Camera Error',
-          response.errorMessage || 'Could not open camera.',
+          response.errorMessage ||
+            `Camera failed (code: ${response.errorCode}). Please try again.`,
+          [{ text: 'OK' }],
         );
         return;
       }
@@ -83,13 +123,25 @@ const ScanProductScreen = ({ navigation }) => {
       setEditMode(false);
 
       try {
-        const { expiryDate, manufacturingDate } = await scanProduct(asset.uri);
-        const nothingFound = !expiryDate && !manufacturingDate;
+        const { expiryDate, manufacturingDate, rawText, notConfigured } =
+          await scanProduct(asset.uri);
 
+        if (notConfigured) {
+          setErrorMsg(
+            'On-device OCR is not yet active. Rebuild the app after linking @react-native-ml-kit/text-recognition, or enter dates manually.',
+          );
+          setEditMode(true);
+          setPhase('result');
+          return;
+        }
+
+        const nothingFound = !expiryDate && !manufacturingDate;
         setDates({
           expiryDate: expiryDate || '',
           manufacturingDate: manufacturingDate || '',
+          rawText: rawText || '',
         });
+        setShowRawText(false);
 
         if (nothingFound) {
           setErrorMsg(
@@ -98,38 +150,47 @@ const ScanProductScreen = ({ navigation }) => {
           setEditMode(true);
         }
         setPhase('result');
-      } catch (err) {
-        console.error('OCR error:', err);
+      } catch (ocrErr) {
+        console.error('[ScanProductScreen] OCR error:', ocrErr);
         setErrorMsg(
-          'Scanning failed. Please retake the photo with better lighting.',
+          ocrErr?.message ||
+            'Scanning failed. Please retake the photo with better lighting.',
         );
         setPhase('error');
       }
-    });
-  };
+    } catch (cameraErr) {
+      console.error('[ScanProductScreen] Camera error:', cameraErr);
+      Alert.alert(
+        'Camera Error',
+        'Could not open the camera. Please check camera permissions in Settings.',
+        [{ text: 'OK' }],
+      );
+    }
+  }, []);
 
   // -------------------------------------------------------------------------
   // Confirm — navigate to AddProductScreen with pre-filled dates
   // -------------------------------------------------------------------------
-  const handleConfirm = () => {
+  const handleConfirm = useCallback(() => {
     navigation.navigate('AddProduct', {
       prefill: {
         expiryDate: dates.expiryDate.trim(),
         manufacturingDate: dates.manufacturingDate.trim(),
       },
     });
-  };
+  }, [navigation, dates]);
 
   // -------------------------------------------------------------------------
   // Reset to scan again
   // -------------------------------------------------------------------------
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setPhase('idle');
     setImageUri(null);
     setDates(INITIAL_DATES);
     setEditMode(false);
     setErrorMsg('');
-  };
+    setShowRawText(false);
+  }, []);
 
   // -------------------------------------------------------------------------
   // RENDER
@@ -144,7 +205,9 @@ const ScanProductScreen = ({ navigation }) => {
         {phase === 'idle' && (
           <>
             <View style={styles.instructionCard}>
-              <Text style={styles.instructionIcon}>📷</Text>
+              <View style={styles.instructionIconWrap}>
+                <Icon name={ICONS.camera} size={48} color={Colors.primary} />
+              </View>
               <Text style={styles.instructionTitle}>
                 Scan Product Expiry Label
               </Text>
@@ -153,19 +216,19 @@ const ScanProductScreen = ({ navigation }) => {
                 visible and well-lit. Avoid shadows and blurring.
               </Text>
               <View style={styles.tipRow}>
-                <Text style={styles.tipDot}>✔</Text>
+                <Icon name={ICONS.check} size={14} color={Colors.accent} style={styles.tipIcon} />
                 <Text style={styles.tipText}>
                   Take a close-up, focused photo
                 </Text>
               </View>
               <View style={styles.tipRow}>
-                <Text style={styles.tipDot}>✔</Text>
+                <Icon name={ICONS.check} size={14} color={Colors.accent} style={styles.tipIcon} />
                 <Text style={styles.tipText}>
                   Ensure enough light (avoid flash glare)
                 </Text>
               </View>
               <View style={styles.tipRow}>
-                <Text style={styles.tipDot}>✔</Text>
+                <Icon name={ICONS.check} size={14} color={Colors.accent} style={styles.tipIcon} />
                 <Text style={styles.tipText}>
                   Look for labels like EXP, MFG, BEST BEFORE
                 </Text>
@@ -176,7 +239,7 @@ const ScanProductScreen = ({ navigation }) => {
               style={styles.scanBtn}
               onPress={handleScan}
               activeOpacity={0.85}>
-              <Text style={styles.scanBtnIcon}>📷</Text>
+              <Icon name={ICONS.camera} size={20} color={Colors.white} />
               <Text style={styles.scanBtnText}>Scan Product</Text>
             </TouchableOpacity>
 
@@ -224,16 +287,19 @@ const ScanProductScreen = ({ navigation }) => {
             {/* Error / Warning Banner */}
             {errorMsg !== '' && (
               <View style={styles.warnBanner}>
-                <Text style={styles.warnIcon}>⚠</Text>
+                <Icon name={ICONS.warning} size={18} color="#92400E" />
                 <Text style={styles.warnText}>{errorMsg}</Text>
               </View>
             )}
 
             {/* Detected Details Card */}
             <View style={styles.resultCard}>
-              <Text style={styles.resultCardTitle}>
-                {errorMsg ? 'Enter Dates Manually' : '✅  Detected Details'}
-              </Text>
+              <View style={styles.resultCardTitleRow}>
+                {!errorMsg && <Icon name={ICONS.check} size={16} color={Colors.accent} style={styles.resultTitleIcon} />}
+                <Text style={styles.resultCardTitle}>
+                  {errorMsg ? 'Enter Dates Manually' : 'Detected Details'}
+                </Text>
+              </View>
 
               {/* Expiry Date */}
               <View style={styles.fieldGroup}>
@@ -296,24 +362,49 @@ const ScanProductScreen = ({ navigation }) => {
                 style={styles.confirmBtn}
                 onPress={handleConfirm}
                 activeOpacity={0.85}>
-                <Text style={styles.confirmBtnText}>✓  Confirm & Fill Form</Text>
+                <Icon name={ICONS.check} size={16} color={Colors.white} style={styles.btnIcon} />
+                <Text style={styles.confirmBtnText}>Confirm & Fill Form</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.editBtn}
                 onPress={() => setEditMode(!editMode)}
                 activeOpacity={0.8}>
+                <Icon
+                  name={editMode ? ICONS.check : ICONS.edit}
+                  size={16}
+                  color={Colors.primary}
+                  style={styles.btnIcon}
+                />
                 <Text style={styles.editBtnText}>
-                  {editMode ? '✓  Done Editing' : '✏  Edit'}
+                  {editMode ? 'Done' : 'Edit'}
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Raw OCR text — collapsible debug view */}
+            {dates.rawText !== '' && (
+              <TouchableOpacity
+                onPress={() => setShowRawText(!showRawText)}
+                style={styles.rawTextToggle}
+                activeOpacity={0.7}>
+                <Text style={styles.rawTextToggleText}>
+                  {showRawText ? '▲ Hide' : '▼ Show'} OCR raw text
+                </Text>
+              </TouchableOpacity>
+            )}
+            {showRawText && dates.rawText !== '' && (
+              <View style={styles.rawTextBox}>
+                <Text style={styles.rawTextContent}>{dates.rawText}</Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.rescanBtn}
               onPress={handleReset}
               activeOpacity={0.8}>
-              <Text style={styles.rescanBtnText}>🔄  Scan Again</Text>
+              <Icon name={ICONS.refresh} size={16} color={Colors.textSecondary} style={styles.btnIcon} />
+              <Text style={styles.rescanBtnText}>Scan Again</Text>
             </TouchableOpacity>
           </>
         )}
@@ -329,7 +420,7 @@ const ScanProductScreen = ({ navigation }) => {
               />
             )}
             <View style={styles.errorCard}>
-              <Text style={styles.errorIcon}>❌</Text>
+              <Icon name={ICONS.error} size={36} color={Colors.danger} style={styles.errorIconStyle} />
               <Text style={styles.errorTitle}>Scan Failed</Text>
               <Text style={styles.errorText}>{errorMsg}</Text>
             </View>
@@ -338,7 +429,7 @@ const ScanProductScreen = ({ navigation }) => {
               style={styles.scanBtn}
               onPress={handleReset}
               activeOpacity={0.85}>
-              <Text style={styles.scanBtnIcon}>🔄</Text>
+              <Icon name={ICONS.refresh} size={20} color={Colors.white} />
               <Text style={styles.scanBtnText}>Try Again</Text>
             </TouchableOpacity>
 
@@ -375,7 +466,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  instructionIcon: { fontSize: 48, marginBottom: 12 },
+  instructionIconWrap: { marginBottom: 12 },
   instructionTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -396,10 +487,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 6,
   },
-  tipDot: {
-    fontSize: 13,
-    color: Colors.accent,
-    fontWeight: '700',
+  tipIcon: {
     marginRight: 8,
     marginTop: 1,
   },
@@ -421,7 +509,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  scanBtnIcon: { fontSize: 20 },
   scanBtnText: {
     color: Colors.white,
     fontSize: 16,
@@ -485,7 +572,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 10,
   },
-  warnIcon: { fontSize: 18 },
   warnText: {
     flex: 1,
     fontSize: 13,
@@ -506,11 +592,18 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  resultCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  resultTitleIcon: {
+    marginRight: 6,
+  },
   resultCardTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: Colors.textPrimary,
-    marginBottom: 16,
   },
   fieldGroup: { marginBottom: 16 },
   fieldLabel: {
@@ -557,8 +650,10 @@ const styles = StyleSheet.create({
 
   // Action Buttons
   actionRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  btnIcon: { marginRight: 4 },
   confirmBtn: {
     flex: 2,
+    flexDirection: 'row',
     backgroundColor: Colors.accent,
     paddingVertical: 14,
     borderRadius: 12,
@@ -572,6 +667,7 @@ const styles = StyleSheet.create({
   },
   editBtn: {
     flex: 1,
+    flexDirection: 'row',
     backgroundColor: Colors.white,
     paddingVertical: 14,
     borderRadius: 12,
@@ -586,13 +682,42 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   rescanBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 12,
   },
   rescanBtnText: {
     color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  // Raw OCR text debug panel
+  rawTextToggle: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 4,
+  },
+  rawTextToggleText: {
+    fontSize: 12,
+    color: Colors.textMuted,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  rawTextBox: {
+    backgroundColor: '#F8F8F8',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  rawTextContent: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
   },
 
   // Error Card
@@ -605,7 +730,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#FED7D7',
   },
-  errorIcon: { fontSize: 36, marginBottom: 10 },
+  errorIconStyle: { marginBottom: 10 },
   errorTitle: {
     fontSize: 17,
     fontWeight: '700',

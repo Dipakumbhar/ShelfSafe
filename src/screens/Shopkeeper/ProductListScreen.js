@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,84 +8,13 @@ import {
   SafeAreaView,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import useProducts from '../../hooks/useProducts';
 import { deleteProduct } from '../../services/productService';
 import Colors from '../../constants/Colors';
-
-const statusConfig = {
-  fresh: { color: Colors.accent, bg: '#EBF9F1', label: 'Fresh' },
-  expiring: { color: Colors.warning, bg: '#FFF8E1', label: 'Expiring Soon' },
-  expired: { color: Colors.danger, bg: '#FDECEA', label: 'Expired' },
-};
-
-const ProductCard = ({ item, onDelete }) => {
-  const config = statusConfig[item.status];
-
-  const handleDelete = () => {
-    Alert.alert(
-      'Delete Product',
-      `Remove "${item.name}" from inventory?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteProduct(item.id);
-            } catch (err) {
-              Alert.alert('Error', 'Failed to delete product.');
-            }
-          },
-        },
-      ],
-    );
-  };
-
-  return (
-    <View style={styles.card}>
-      <View style={styles.cardTop}>
-        <View style={styles.cardLeft}>
-          <Text style={styles.productName}>{item.name}</Text>
-          <Text style={styles.category}>{item.category}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
-          <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
-        </View>
-      </View>
-      <View style={styles.divider} />
-      <View style={styles.cardBottom}>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Qty</Text>
-          <Text style={styles.infoValue}>{item.quantity} {item.unit}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Batch</Text>
-          <Text style={styles.infoValue}>{item.batchNo || '—'}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Expiry</Text>
-          <Text style={[styles.infoValue, { color: config.color }]}>{item.expiryDate}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Days Left</Text>
-          <Text style={[styles.infoValue, { color: config.color, fontWeight: '700' }]}>
-            {item.daysLeft == null
-              ? '—'
-              : item.daysLeft < 0
-                ? `${Math.abs(item.daysLeft)}d ago`
-                : `${item.daysLeft}d`}
-          </Text>
-        </View>
-      </View>
-      <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-        <Text style={styles.deleteBtnText}>🗑 Remove</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
+import Icon from '../../components/Icon';
+import ProductCard from '../../components/ProductCard';
+import ICONS from '../../constants/Icons';
 
 const ProductListScreen = ({ navigation }) => {
   const { products, loading } = useProducts();
@@ -99,6 +28,25 @@ const ProductListScreen = ({ navigation }) => {
     const matchFilter = filter === 'all' || p.status === filter;
     return matchSearch && matchFilter;
   });
+
+  const handleDelete = useCallback(async (productId) => {
+    try {
+      await deleteProduct(productId);
+    } catch (err) {
+      const { Alert } = require('react-native');
+      Alert.alert('Error', 'Failed to delete product.');
+    }
+  }, []);
+
+  const handleEdit = useCallback((product) => {
+    navigation.navigate('EditProduct', { product });
+  }, [navigation]);
+
+  const renderItem = useCallback(({ item }) => (
+    <ProductCard item={item} onDelete={handleDelete} onEdit={handleEdit} />
+  ), [handleDelete, handleEdit]);
+
+  const keyExtractor = useCallback((item) => item.id, []);
 
   if (loading) {
     return (
@@ -115,13 +63,16 @@ const ProductListScreen = ({ navigation }) => {
     <SafeAreaView style={styles.safeArea}>
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          placeholderTextColor={Colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
+        <View style={styles.searchRow}>
+          <Icon name={ICONS.search} size={18} color={Colors.textMuted} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            placeholderTextColor={Colors.textMuted}
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
       </View>
 
       {/* Filter Pills */}
@@ -140,12 +91,12 @@ const ProductListScreen = ({ navigation }) => {
 
       <FlatList
         data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ProductCard item={item} />}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>📦</Text>
+            <Icon name={ICONS.empty} size={48} color={Colors.textMuted} />
             <Text style={styles.emptyText}>
               {products.length === 0
                 ? 'No products yet. Add your first product!'
@@ -159,7 +110,8 @@ const ProductListScreen = ({ navigation }) => {
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate('AddTab')}>
-        <Text style={styles.fabText}>+ Add Product</Text>
+        <Icon name={ICONS.add} size={18} color={Colors.white} />
+        <Text style={styles.fabText}>Add Product</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -176,15 +128,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.divider,
   },
-  searchInput: {
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.background,
     borderRadius: 10,
-    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  searchIcon: {
+    marginLeft: 12,
+  },
+  searchInput: {
+    flex: 1,
+    paddingHorizontal: 10,
     paddingVertical: 10,
     fontSize: 14,
     color: Colors.textPrimary,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   filterRow: {
     flexDirection: 'row',
@@ -207,39 +167,19 @@ const styles = StyleSheet.create({
   filterText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
   filterTextActive: { color: Colors.white, fontWeight: '600' },
   list: { padding: 16, paddingBottom: 100 },
-  card: {
-    backgroundColor: Colors.white,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: Colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  cardLeft: { flex: 1 },
-  productName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  category: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusText: { fontSize: 11, fontWeight: '700' },
-  divider: { height: 1, backgroundColor: Colors.divider, marginVertical: 12 },
-  cardBottom: { flexDirection: 'row', justifyContent: 'space-between' },
-  infoItem: { alignItems: 'center' },
-  infoLabel: { fontSize: 11, color: Colors.textMuted, fontWeight: '500', marginBottom: 2 },
-  infoValue: { fontSize: 13, color: Colors.textPrimary, fontWeight: '600' },
   empty: { alignItems: 'center', paddingTop: 60 },
-  emptyIcon: { fontSize: 48 },
   emptyText: { color: Colors.textMuted, fontSize: 15, marginTop: 10 },
   fab: {
     position: 'absolute',
     bottom: 20,
     right: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.primary,
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 30,
+    gap: 6,
     shadowColor: Colors.shadowColor,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -247,15 +187,6 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   fabText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
-  deleteBtn: {
-    alignSelf: 'flex-end',
-    marginTop: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#FEF2F2',
-  },
-  deleteBtnText: { fontSize: 12, color: Colors.danger, fontWeight: '600' },
 });
 
 export default ProductListScreen;

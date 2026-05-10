@@ -11,13 +11,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import useProducts from '../../hooks/useProducts';
 import Colors from '../../constants/Colors';
-
-const StatCard = ({ label, value, color }) => (
-  <View style={[styles.statCard, { borderLeftColor: color }]}>
-    <Text style={[styles.statValue, { color }]}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
-  </View>
-);
+import Icon from '../../components/Icon';
+import SummaryCard from '../../components/SummaryCard';
+import ICONS from '../../constants/Icons';
 
 const DashboardScreen = ({ navigation }) => {
   const { user, logout } = useAuth();
@@ -49,6 +45,7 @@ const DashboardScreen = ({ navigation }) => {
             <Text style={styles.userName}>{user?.email}</Text>
           </View>
           <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+            <Icon name={ICONS.logout} size={16} color={Colors.white} style={styles.logoutIcon} />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -56,12 +53,12 @@ const DashboardScreen = ({ navigation }) => {
         {/* Summary Section */}
         <Text style={styles.sectionTitle}>Inventory Summary</Text>
         <View style={styles.statsRow}>
-          <StatCard label="Total Items" value={total} color={Colors.primary} />
-          <StatCard label="Fresh" value={fresh} color={Colors.accent} />
+          <SummaryCard label="Total Items" value={total} color={Colors.primary} icon={ICONS.products} />
+          <SummaryCard label="Fresh" value={fresh} color={Colors.accent} icon={ICONS.success} />
         </View>
         <View style={styles.statsRow}>
-          <StatCard label="Expiring Soon" value={expiring} color={Colors.warning} />
-          <StatCard label="Expired" value={expired} color={Colors.danger} />
+          <SummaryCard label="Expiring Soon" value={expiring} color={Colors.warning} icon={ICONS.warning} />
+          <SummaryCard label="Expired" value={expired} color={Colors.danger} icon={ICONS.expiry} />
         </View>
 
         {/* Quick Actions */}
@@ -70,32 +67,32 @@ const DashboardScreen = ({ navigation }) => {
           style={styles.actionBtn}
           onPress={() => navigation.navigate('Products')}>
           <View style={styles.actionBtnIcon}>
-            <Text style={styles.actionIcon}>📦</Text>
+            <Icon name={ICONS.products} size={22} color={Colors.primary} />
           </View>
           <View style={styles.actionBtnContent}>
             <Text style={styles.actionBtnTitle}>View Product Inventory</Text>
             <Text style={styles.actionBtnSub}>Browse all products &amp; expiry dates</Text>
           </View>
-          <Text style={styles.actionArrow}>›</Text>
+          <Icon name={ICONS.forward} size={22} color={Colors.textMuted} />
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={() => navigation.navigate('AddTab')}>
           <View style={[styles.actionBtnIcon, { backgroundColor: '#EBF9F1' }]}>
-            <Text style={styles.actionIcon}>➕</Text>
+            <Icon name={ICONS.addProduct} size={22} color={Colors.accent} />
           </View>
           <View style={styles.actionBtnContent}>
             <Text style={styles.actionBtnTitle}>Add New Product</Text>
             <Text style={styles.actionBtnSub}>Scan or enter product details</Text>
           </View>
-          <Text style={styles.actionArrow}>›</Text>
+          <Icon name={ICONS.forward} size={22} color={Colors.textMuted} />
         </TouchableOpacity>
 
         {/* Alert Banner */}
         {(expired > 0 || expiring > 0) && (
           <View style={styles.alertBanner}>
-            <Text style={styles.alertIcon}>⚠️</Text>
+            <Icon name={ICONS.warning} size={20} color="#7D4E00" />
             <Text style={styles.alertText}>
               {expired > 0 ? `${expired} expired` : ''}
               {expired > 0 && expiring > 0 ? ' · ' : ''}
@@ -125,12 +122,17 @@ const styles = StyleSheet.create({
   welcomeText: { color: 'rgba(255,255,255,0.75)', fontSize: 13 },
   userName: { color: Colors.white, fontSize: 20, fontWeight: '700', marginTop: 2 },
   logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.15)',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
+  },
+  logoutIcon: {
+    marginRight: 6,
   },
   logoutText: { color: Colors.white, fontSize: 13, fontWeight: '600' },
   sectionTitle: {
@@ -141,20 +143,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   statsRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  statCard: {
-    flex: 1,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 16,
-    borderLeftWidth: 4,
-    shadowColor: Colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  statValue: { fontSize: 28, fontWeight: '800' },
-  statLabel: { fontSize: 12, color: Colors.textSecondary, marginTop: 4, fontWeight: '500' },
   actionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -177,11 +165,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
-  actionIcon: { fontSize: 22 },
   actionBtnContent: { flex: 1 },
   actionBtnTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
   actionBtnSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  actionArrow: { fontSize: 22, color: Colors.textMuted },
   alertBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -193,7 +179,6 @@ const styles = StyleSheet.create({
     borderLeftColor: Colors.warning,
     gap: 10,
   },
-  alertIcon: { fontSize: 20 },
   alertText: { flex: 1, color: '#7D4E00', fontSize: 13, fontWeight: '600' },
 });
 

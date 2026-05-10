@@ -48,3 +48,36 @@ export const getUserData = async (uid) => {
   }
   return null;
 };
+
+/**
+ * Updates user profile details in Firestore.
+ * @param {string} uid - Firebase Auth UID
+ * @param {object} data - Data to update (e.g. { name: 'John' })
+ */
+export const updateUserProfile = async (uid, data) => {
+  await firestore().collection(USERS_COLLECTION).doc(uid).update(data);
+};
+
+/**
+ * Updates shop details in Firestore.
+ * @param {string} uid - Firebase Auth UID
+ * @param {object} shopData - Shop data to update (e.g. { name: 'My Shop', address: '123 St' })
+ */
+export const updateShopDetails = async (uid, shopData) => {
+  await firestore().collection(USERS_COLLECTION).doc(uid).set(
+    { shop: shopData },
+    { merge: true }
+  );
+};
+
+/**
+ * Updates the user's notification settings.
+ * @param {string} uid - Firebase Auth UID
+ * @param {boolean} notificationsEnabled - true or false
+ */
+export const updateNotificationSettings = async (uid, notificationsEnabled) => {
+  await firestore().collection(USERS_COLLECTION).doc(uid).set(
+    { settings: { notificationsEnabled } },
+    { merge: true }
+  );
+};
