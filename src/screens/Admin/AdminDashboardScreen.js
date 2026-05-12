@@ -1,117 +1,172 @@
-import React, { useCallback } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  ActivityIndicator,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
-import { MOCK_SHOPS } from '../../constants/MockData';
+import useAdminInventory from '../../hooks/useAdminInventory';
 import Colors from '../../constants/Colors';
 import Icon from '../../components/Icon';
 import ICONS from '../../constants/Icons';
 
-const OverviewCard = React.memo(({ label, value, color, icon }) => (
-  <View style={[styles.overviewCard, { borderLeftColor: color }]}>
+const OverviewCard = ({ label, value, color, icon }) => (
+  <View style={[styles.overviewCard, { borderTopColor: color }]}>
     <Icon name={icon} size={20} color={color} style={styles.overviewIconStyle} />
     <Text style={[styles.overviewValue, { color }]}>{value}</Text>
     <Text style={styles.overviewLabel}>{label}</Text>
   </View>
-));
+);
 
-const ShopCard = React.memo(({ item, onPress }) => {
-  const hasIssues = item.expiredItems > 0 || item.expiringItems > 0;
+const ShopkeeperCard = ({ item, onPress }) => {
+  const displayName = item.name || 'Shopkeeper';
+  const avatarLetter = (displayName || item.email || 'S').slice(0, 1).toUpperCase();
+
   return (
-    <TouchableOpacity style={styles.shopCard} onPress={onPress} activeOpacity={0.8}>
-      <View style={styles.shopCardHeader}>
-        <View style={styles.shopIconBox}>
-          <Icon name={ICONS.shop} size={22} color={Colors.primary} />
+    <View style={styles.shopkeeperCard}>
+      <View style={styles.cardHeader}>
+        <View style={styles.avatarBox}>
+          <Text style={styles.avatarText}>{avatarLetter}</Text>
         </View>
-        <View style={styles.shopInfo}>
-          <Text style={styles.shopName}>{item.name}</Text>
-          <Text style={styles.shopOwner}>{item.owner}</Text>
-          <View style={styles.locationRow}>
-            <Icon name={ICONS.location} size={12} color={Colors.textMuted} style={styles.locationIcon} />
-            <Text style={styles.shopLocation}>{item.location}</Text>
+        <View style={styles.profileCopy}>
+          <Text style={styles.profileName}>{displayName}</Text>
+          <Text style={styles.profileEmail}>{item.email}</Text>
+          <Text style={styles.profileMeta}>
+            {item.shopCount} stores and {item.totalProducts} products
+          </Text>
+        </View>
+        {item.alertCount ? (
+          <View style={styles.alertPill}>
+            <Text style={styles.alertPillText}>{item.alertCount} alerts</Text>
           </View>
-        </View>
-        {hasIssues && (
-          <View style={styles.alertDot} />
-        )}
+        ) : null}
       </View>
-      <View style={styles.shopStats}>
-        <View style={styles.shopStat}>
-          <Text style={styles.shopStatVal}>{item.totalProducts}</Text>
-          <Text style={styles.shopStatLabel}>Total</Text>
+
+      <View style={styles.statsRow}>
+        <View style={styles.statBox}>
+          <Text style={styles.statValue}>{item.shopCount}</Text>
+          <Text style={styles.statLabel}>Stores</Text>
         </View>
-        <View style={styles.shopStat}>
-          <Text style={[styles.shopStatVal, { color: Colors.warning }]}>{item.expiringItems}</Text>
-          <Text style={styles.shopStatLabel}>Expiring</Text>
+        <View style={styles.statBox}>
+          <Text style={[styles.statValue, { color: Colors.warning }]}>{item.expiringItems}</Text>
+          <Text style={styles.statLabel}>Expiring</Text>
         </View>
-        <View style={styles.shopStat}>
-          <Text style={[styles.shopStatVal, { color: Colors.danger }]}>{item.expiredItems}</Text>
-          <Text style={styles.shopStatLabel}>Expired</Text>
+        <View style={styles.statBox}>
+          <Text style={[styles.statValue, { color: Colors.danger }]}>{item.expiredItems}</Text>
+          <Text style={styles.statLabel}>Expired</Text>
         </View>
       </View>
-      <View style={styles.viewDetailRow}>
-        <Text style={styles.viewDetail}>View Details</Text>
-        <Icon name={ICONS.forward} size={16} color={Colors.primary} />
+
+      <Text style={styles.nestedTitle}>Stores</Text>
+      {item.shops.length ? item.shops.map((shop) => (
+        <TouchableOpacity
+          key={shop.id}
+          style={styles.shopRow}
+          onPress={onPress}
+          activeOpacity={0.85}>
+          <View style={styles.shopRowLeft}>
+            <Text style={styles.shopName}>{shop.name}</Text>
+            <Text style={styles.shopMeta}>
+              {shop.address || 'No address added'}
+              {shop.id === item.activeShopId ? ' - Active' : ''}
+            </Text>
+          </View>
+          <View style={styles.shopRowRight}>
+            <Text style={styles.shopCount}>{shop.totalProducts}</Text>
+            <Text style={styles.shopCountLabel}>items</Text>
+          </View>
+        </TouchableOpacity>
+      )) : (
+        <Text style={styles.emptyNestedText}>No stores available yet.</Text>
+      )}
+
+      <View style={styles.footerRow}>
+        <TouchableOpacity style={styles.detailBtn} onPress={onPress} activeOpacity={0.85}>
+          <Text style={styles.detailBtnText}>Open Full Profile</Text>
+          <Icon name={ICONS.forward} size={16} color={Colors.primary} />
+        </TouchableOpacity>
       </View>
-    </TouchableOpacity>
+    </View>
   );
-});
+};
 
 const AdminDashboardScreen = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const { shopkeepers, summary, loading, error } = useAdminInventory();
 
-  const totalProducts = MOCK_SHOPS.reduce((s, sh) => s + sh.totalProducts, 0);
-  const totalExpired = MOCK_SHOPS.reduce((s, sh) => s + sh.expiredItems, 0);
-  const totalExpiring = MOCK_SHOPS.reduce((s, sh) => s + sh.expiringItems, 0);
-
-  const renderShopItem = useCallback(({ item }) => (
-    <ShopCard
-      item={item}
-      onPress={() => navigation.navigate('ShopDetail', { shopId: item.id })}
-    />
-  ), [navigation]);
-
-  const keyExtractor = useCallback((item) => item.id, []);
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading shopkeepers...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Admin Banner */}
         <View style={styles.banner}>
           <View>
             <Text style={styles.roleTag}>ADMINISTRATOR</Text>
             <Text style={styles.adminName}>Admin Panel</Text>
             <Text style={styles.adminEmail}>{user?.email}</Text>
           </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-            <Icon name={ICONS.logout} size={14} color={Colors.white} style={styles.logoutIcon} />
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
+          <View style={styles.bannerActions}>
+            <TouchableOpacity
+              style={styles.profileBtn}
+              onPress={() => navigation.navigate('AdminProfile')}
+              activeOpacity={0.85}>
+              <Icon name={ICONS.profile} size={14} color={Colors.white} style={styles.logoutIcon} />
+              <Text style={styles.logoutText}>Profile</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.logoutBtn} onPress={logout} activeOpacity={0.85}>
+              <Icon name={ICONS.logout} size={14} color={Colors.white} style={styles.logoutIcon} />
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Platform Overview */}
         <Text style={styles.sectionTitle}>Platform Overview</Text>
-        <View style={styles.overviewRow}>
-          <OverviewCard label="Shops" value={MOCK_SHOPS.length} color={Colors.primary} icon={ICONS.shop} />
-          <OverviewCard label="Products" value={totalProducts} color={Colors.info} icon={ICONS.products} />
-          <OverviewCard label="Alerts" value={totalExpired + totalExpiring} color={Colors.danger} icon={ICONS.warning} />
+        <View style={styles.overviewGrid}>
+          <OverviewCard label="Shopkeepers" value={summary.totalShopkeepers} color={Colors.primary} icon={ICONS.profile} />
+          <OverviewCard label="Stores" value={summary.totalShops} color={Colors.info} icon={ICONS.shop} />
+          <OverviewCard label="Products" value={summary.totalProducts} color={Colors.accent} icon={ICONS.products} />
+          <OverviewCard label="Alerts" value={summary.totalAlerts} color={Colors.danger} icon={ICONS.warning} />
         </View>
 
-        {/* Shops List */}
-        <Text style={styles.sectionTitle}>Registered Shops</Text>
-        <FlatList
-          data={MOCK_SHOPS}
-          keyExtractor={keyExtractor}
-          renderItem={renderShopItem}
-          scrollEnabled={false}
-        />
+        <Text style={styles.sectionTitle}>Shopkeeper Hierarchy</Text>
+        <Text style={styles.sectionSubtitle}>
+          Live Firestore view of shopkeeper profile to stores to inventory.
+        </Text>
+
+        {error ? (
+          <View style={styles.errorBanner}>
+            <Icon name={ICONS.warning} size={16} color={Colors.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : null}
+
+        {shopkeepers.length ? shopkeepers.map((shopkeeper) => (
+          <ShopkeeperCard
+            key={shopkeeper.id}
+            item={shopkeeper}
+            onPress={() => navigation.navigate('ShopDetail', { shopkeeperId: shopkeeper.id })}
+          />
+        )) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No shopkeepers found</Text>
+            <Text style={styles.emptyText}>
+              Shopkeeper accounts will appear here once they sign up and sync to Firestore.
+            </Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -120,6 +175,8 @@ const AdminDashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   container: { padding: 20, paddingBottom: 40 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, color: Colors.textSecondary, fontSize: 14 },
   banner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -138,6 +195,20 @@ const styles = StyleSheet.create({
   },
   adminName: { color: Colors.white, fontSize: 20, fontWeight: '700' },
   adminEmail: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: 2 },
+  bannerActions: {
+    alignItems: 'flex-end',
+  },
+  profileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    marginBottom: 8,
+  },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -148,9 +219,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
   },
-  logoutIcon: {
-    marginRight: 6,
-  },
+  logoutIcon: { marginRight: 6 },
   logoutText: { color: Colors.white, fontSize: 13, fontWeight: '600' },
   sectionTitle: {
     fontSize: 16,
@@ -159,14 +228,26 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 4,
   },
-  overviewRow: { flexDirection: 'row', gap: 10, marginBottom: 24 },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: -4,
+    marginBottom: 12,
+  },
+  overviewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginBottom: 24,
+  },
   overviewCard: {
-    flex: 1,
+    width: '48%',
     backgroundColor: Colors.white,
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
-    borderLeftWidth: 4,
+    borderTopWidth: 4,
+    marginBottom: 10,
     shadowColor: Colors.shadowColor,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -176,7 +257,7 @@ const styles = StyleSheet.create({
   overviewIconStyle: { marginBottom: 6 },
   overviewValue: { fontSize: 22, fontWeight: '800' },
   overviewLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
-  shopCard: {
+  shopkeeperCard: {
     backgroundColor: Colors.white,
     borderRadius: 16,
     padding: 16,
@@ -187,36 +268,33 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  shopCardHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
-  shopIconBox: {
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  avatarBox: {
     width: 46,
     height: 46,
-    borderRadius: 12,
-    backgroundColor: '#EEF2FF',
+    borderRadius: 23,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
   },
-  shopInfo: { flex: 1 },
-  shopName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  shopOwner: { fontSize: 13, color: Colors.textSecondary, marginTop: 1 },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
+  avatarText: {
+    color: Colors.white,
+    fontSize: 18,
+    fontWeight: '800',
   },
-  locationIcon: {
-    marginRight: 3,
+  profileCopy: { flex: 1 },
+  profileName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  profileEmail: { fontSize: 13, color: Colors.textSecondary, marginTop: 2 },
+  profileMeta: { fontSize: 12, color: Colors.textMuted, marginTop: 4 },
+  alertPill: {
+    backgroundColor: '#FDECEA',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
-  shopLocation: { fontSize: 12, color: Colors.textMuted },
-  alertDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: Colors.danger,
-    marginTop: 4,
-  },
-  shopStats: {
+  alertPillText: { fontSize: 11, fontWeight: '700', color: Colors.danger },
+  statsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     backgroundColor: Colors.background,
@@ -224,19 +302,82 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 12,
   },
-  shopStat: { alignItems: 'center' },
-  shopStatVal: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
-  shopStatLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
-  viewDetailRow: {
+  statBox: { alignItems: 'center' },
+  statValue: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
+  statLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
+  nestedTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  shopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
+  },
+  shopRowLeft: { flex: 1, paddingRight: 12 },
+  shopName: { fontSize: 14, fontWeight: '700', color: Colors.textPrimary },
+  shopMeta: { fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
+  shopRowRight: { alignItems: 'flex-end' },
+  shopCount: { fontSize: 18, fontWeight: '800', color: Colors.primary },
+  shopCountLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
+  emptyNestedText: { fontSize: 13, color: Colors.textSecondary },
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+    marginTop: 8,
   },
-  viewDetail: {
+  detailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailBtnText: {
     fontSize: 13,
     color: Colors.primary,
     fontWeight: '700',
     marginRight: 4,
+  },
+  emptyCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: Colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  emptyText: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 20,
+    color: Colors.textSecondary,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  errorText: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 13,
+    color: Colors.danger,
   },
 });
 

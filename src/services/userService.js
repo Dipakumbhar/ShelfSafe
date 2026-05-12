@@ -4,6 +4,9 @@ import firestore from '@react-native-firebase/firestore';
 const USERS_COLLECTION = 'users';
 const ADMIN_EMAIL = 'admin@gmail.com';
 
+const wait = (ms) => new Promise((resolve) => {
+  setTimeout(resolve, ms);
+});
 
 export const resolveRole = (email) => {
   return email.trim().toLowerCase() === ADMIN_EMAIL ? 'admin' : 'shopkeeper';
@@ -20,6 +23,10 @@ export const createUserInFirestore = async (uid, email, role) => {
     uid,
     email: email.trim().toLowerCase(),
     role,
+    activeShopId: null,
+    settings: {
+      notificationsEnabled: true,
+    },
     createdAt: firestore.FieldValue.serverTimestamp(),
   });
 };
@@ -49,24 +56,56 @@ export const getUserData = async (uid) => {
   return null;
 };
 
+export const getUserDataWithRetry = async (uid, options = {}) => {
+  const attempts = options.attempts ?? 12;
+  const delayMs = options.delayMs ?? 250;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const userData = await getUserData(uid);
+
+    if (userData) {
+      return userData;
+    }
+
+    if (attempt < attempts - 1) {
+      await wait(delayMs);
+    }
+  }
+
+  return null;
+};
+
 /**
  * Updates user profile details in Firestore.
  * @param {string} uid - Firebase Auth UID
  * @param {object} data - Data to update (e.g. { name: 'John' })
  */
 export const updateUserProfile = async (uid, data) => {
-  await firestore().collection(USERS_COLLECTION).doc(uid).update(data);
+  const payload = { ...data };
+
+  if (typeof payload.email === 'string') {
+    payload.email = payload.email.trim().toLowerCase();
+  }
+
+  await firestore().collection(USERS_COLLECTION).doc(uid).set(
+    {
+      ...payload,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 };
 
 /**
- * Updates shop details in Firestore.
- * @param {string} uid - Firebase Auth UID
- * @param {object} shopData - Shop data to update (e.g. { name: 'My Shop', address: '123 St' })
+ * Persist the currently active shop for a shopkeeper.
  */
-export const updateShopDetails = async (uid, shopData) => {
+export const updateUserActiveShop = async (uid, activeShopId) => {
   await firestore().collection(USERS_COLLECTION).doc(uid).set(
-    { shop: shopData },
-    { merge: true }
+    {
+      activeShopId,
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
   );
 };
 
@@ -77,7 +116,28 @@ export const updateShopDetails = async (uid, shopData) => {
  */
 export const updateNotificationSettings = async (uid, notificationsEnabled) => {
   await firestore().collection(USERS_COLLECTION).doc(uid).set(
-    { settings: { notificationsEnabled } },
-    { merge: true }
+    {
+      settings: { notificationsEnabled },
+      updatedAt: firestore.FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+};
+
+/**
+ * Subscribe to a single user document in real time.
+ * @param {string} uid
+ * @param {Function} onData
+ * @param {Function} onError
+ */
+export const subscribeToUser = (uid, onData, onError) => {
+  return firestore().collection(USERS_COLLECTION).doc(uid).onSnapshot(
+    (doc) => {
+      onData(doc.exists ? doc.data() : null);
+    },
+    (error) => {
+      console.error('subscribeToUser error:', error);
+      if (onError) onError(error);
+    },
   );
 };

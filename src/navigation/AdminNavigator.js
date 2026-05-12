@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import Colors from '../constants/Colors';
 import AdminDashboardScreen from '../screens/Admin/AdminDashboardScreen';
+import AdminProfileScreen from '../screens/Admin/AdminProfileScreen';
 import ShopDetailScreen from '../screens/Admin/ShopDetailScreen';
 
 const Stack = createNativeStackNavigator();
@@ -24,6 +25,11 @@ const AdminNavigator = () => {
         name="ShopDetail"
         component={ShopDetailScreen}
         options={{ title: 'Shop Details' }}
+      />
+      <Stack.Screen
+        name="AdminProfile"
+        component={AdminProfileScreen}
+        options={{ title: 'Admin Profile' }}
       />
     </Stack.Navigator>
   );

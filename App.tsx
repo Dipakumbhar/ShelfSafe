@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Platform, PermissionsAndroid, Alert, Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { AuthProvider } from './src/context/AuthContext';
+import { ShopProvider } from './src/context/ShopContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import { configure as configureNotifications } from './src/services/notificationService';
 
@@ -73,9 +74,11 @@ const App = () => {
 
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <RootNavigator />
-      </NavigationContainer>
+      <ShopProvider>
+        <NavigationContainer>
+          <RootNavigator />
+        </NavigationContainer>
+      </ShopProvider>
     </AuthProvider>
   );
 };

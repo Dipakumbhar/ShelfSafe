@@ -34,8 +34,10 @@ import { scanProduct } from '../../services/ocrService';
 import { addProduct } from '../../services/productService';
 import { getUserData } from '../../services/userService';
 import { useAuth } from '../../context/AuthContext';
+import { useShop } from '../../context/ShopContext';
 import Colors from '../../constants/Colors';
 import Icon from '../../components/Icon';
+import ShopSwitcher from '../../components/ShopSwitcher';
 import ICONS from '../../constants/Icons';
 
 // ---------------------------------------------------------------------------
@@ -393,7 +395,18 @@ const FormInput = ({
 // ---------------------------------------------------------------------------
 const AddProductScreen = ({ navigation, route }) => {
   const { user } = useAuth();
+  const {
+    shops,
+    activeShop,
+    activeShopId,
+    selectShop,
+    loading: shopsLoading,
+  } = useShop();
   const prefill = route?.params?.prefill || {};
+  const manageShops = useCallback(
+    () => navigation.navigate('Profile', { screen: 'MyShop' }),
+    [navigation],
+  );
 
   // Form state — dates are Date objects or null
   const [form, setForm] = useState({
@@ -585,6 +598,14 @@ const AddProductScreen = ({ navigation, route }) => {
   // -------------------------------------------------------------------------
   const handleSubmit = useCallback(async () => {
     const { name, category, quantity, expiryDate } = form;
+    if (!activeShop) {
+      Alert.alert(
+        'Select a Store',
+        'Choose an active store before adding products to inventory.',
+      );
+      return;
+    }
+
     if (!name.trim() || !category || !quantity.trim() || !expiryDate) {
       Alert.alert(
         'Required Fields',
@@ -628,7 +649,13 @@ const AddProductScreen = ({ navigation, route }) => {
         }
       } catch (_) { /* non-blocking */ }
 
-      const { notifResult } = await addProduct(user.uid, payload, notificationsEnabled);
+      const { notifResult } = await addProduct({
+        shopkeeperId: user.uid,
+        shopId: activeShop.id,
+        shopName: activeShop.name,
+        formData: payload,
+        notificationsEnabled,
+      });
 
       // Build success message based on notification outcome
       let notifMsg = '';
@@ -667,16 +694,49 @@ const AddProductScreen = ({ navigation, route }) => {
     } finally {
       setSubmitting(false);
     }
-  }, [form, submitting, navigation, user]);
+  }, [activeShop, form, submitting, navigation, user]);
 
   // -------------------------------------------------------------------------
   // RENDER
   // -------------------------------------------------------------------------
+  if (shopsLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading your stores...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled">
+        <ShopSwitcher
+          shops={shops}
+          activeShopId={activeShopId}
+          onSelect={selectShop}
+          onManagePress={manageShops}
+          subtitle="New products will be saved under the selected store only."
+        />
+
+        {!activeShop ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Select a Store First</Text>
+            <Text style={styles.emptyStateText}>
+              Create a store or switch the active one before adding inventory items.
+            </Text>
+            <TouchableOpacity
+              style={styles.manageStoresBtn}
+              onPress={manageShops}
+              activeOpacity={0.85}>
+              <Text style={styles.manageStoresBtnText}>Manage Stores</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* ── OCR SCAN CARD ────────────────────────────────────────────── */}
         <View style={scanStyles.card}>
@@ -1099,6 +1159,8 @@ const inputStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   container: { padding: 16, paddingBottom: 40 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, fontSize: 14, color: Colors.textSecondary },
 
   card: {
     backgroundColor: Colors.white,
@@ -1117,6 +1179,24 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     marginBottom: 16,
     letterSpacing: 0.3,
+  },
+  emptyStateText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: Colors.textSecondary,
+  },
+  manageStoresBtn: {
+    marginTop: 16,
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  manageStoresBtnText: {
+    color: Colors.white,
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   row: { flexDirection: 'row', gap: 12, marginBottom: 0 },

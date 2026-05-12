@@ -7,6 +7,33 @@ import {
 
 const PRODUCTS_COLLECTION = 'products';
 
+const mapProductDoc = (doc) => {
+  const data = doc.data();
+  const { daysLeft, status } = computeStatus(data.expiryDate);
+
+  return {
+    id: doc.id,
+    ...data,
+    daysLeft,
+    status,
+  };
+};
+
+const getTimestampMs = (value) => {
+  if (!value) return 0;
+  if (typeof value?.toDate === 'function') {
+    return value.toDate().getTime();
+  }
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const sortProductsByCreatedAt = (products = []) => {
+  return [...products].sort(
+    (first, second) => getTimestampMs(second.createdAt) - getTimestampMs(first.createdAt),
+  );
+};
+
 // ---------------------------------------------------------------------------
 // HELPERS
 // ---------------------------------------------------------------------------
@@ -85,14 +112,22 @@ export const computeStatus = (expiryDateStr) => {
  * @param {boolean} [notificationsEnabled=true] - User notification preference
  * @returns {Promise<{id: string, notifResult: string}>}
  */
-export const addProduct = async (shopkeeperId, formData, notificationsEnabled = true) => {
+export const addProduct = async ({
+  shopkeeperId,
+  shopId,
+  shopName,
+  formData,
+  notificationsEnabled = true,
+}) => {
   const { daysLeft, status } = computeStatus(formData.expiryDate);
 
   const payload = {
     shopkeeperId,
+    shopId,
+    shopName: (shopName || '').trim(),
     name: formData.name.trim(),
     category: formData.category,
-    quantity: formData.quantity,
+    quantity: formData.quantity.trim(),
     unit: (formData.unit || '').trim(),
     batchNo: (formData.batchNo || '').trim(),
     expiryDate: (formData.expiryDate || '').trim(),
@@ -151,7 +186,7 @@ export const updateProduct = async (productId, formData, notificationsEnabled = 
   const payload = {
     name: formData.name.trim(),
     category: formData.category,
-    quantity: formData.quantity,
+    quantity: formData.quantity.trim(),
     unit: (formData.unit || '').trim(),
     batchNo: (formData.batchNo || '').trim(),
     expiryDate: (formData.expiryDate || '').trim(),
@@ -193,27 +228,27 @@ export const updateProduct = async (productId, formData, notificationsEnabled = 
  * items automatically advance to "expired" without needing a Firestore write.
  *
  * @param {string}   shopkeeperId
+ * @param {object}     options
+ * @param {string?}    options.shopId
  * @param {Function} onData   - Called with (products: array) on every update
  * @param {Function} onError  - Called with (error) if the listener fails
  */
-export const subscribeToProducts = (shopkeeperId, onData, onError) => {
+export const subscribeToProducts = (shopkeeperId, options, onData, onError) => {
+  const selectedShopId = options?.shopId || null;
+
   const unsubscribe = firestore()
     .collection(PRODUCTS_COLLECTION)
     .where('shopkeeperId', '==', shopkeeperId)
-    .orderBy('createdAt', 'desc')
     .onSnapshot(
       (snapshot) => {
-        const products = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          // Recompute live status based on today's date
-          const { daysLeft, status } = computeStatus(data.expiryDate);
-          return {
-            id: doc.id,
-            ...data,
-            daysLeft,
-            status,
-          };
-        });
+        const products = sortProductsByCreatedAt(
+          snapshot.docs
+            .map(mapProductDoc)
+            .filter((product) => (
+              selectedShopId ? product.shopId === selectedShopId : true
+            )),
+        );
+
         onData(products);
       },
       (error) => {
@@ -223,4 +258,36 @@ export const subscribeToProducts = (shopkeeperId, onData, onError) => {
     );
 
   return unsubscribe;
+};
+
+/**
+ * Subscribe to every product in Firestore.
+ * Used by the admin panel to build a live hierarchy view.
+ */
+export const subscribeToAllProducts = (onData, onError) => {
+  return firestore().collection(PRODUCTS_COLLECTION).onSnapshot(
+    (snapshot) => {
+      onData(sortProductsByCreatedAt(snapshot.docs.map(mapProductDoc)));
+    },
+    (error) => {
+      console.error('subscribeToAllProducts error:', error);
+      if (onError) onError(error);
+    },
+  );
+};
+
+/**
+ * Shared product summary helper for shopkeeper and admin screens.
+ */
+export const summarizeProducts = (products = []) => {
+  const expiringItems = products.filter((product) => product.status === 'expiring').length;
+  const expiredItems = products.filter((product) => product.status === 'expired').length;
+  const freshItems = products.filter((product) => product.status === 'fresh').length;
+
+  return {
+    totalProducts: products.length,
+    expiringItems,
+    expiredItems,
+    freshItems,
+  };
 };

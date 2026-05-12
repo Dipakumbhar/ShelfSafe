@@ -17,6 +17,24 @@ jest.mock('../src/context/AuthContext', () => ({
   useAuth: () => ({ isAuthenticated: false, loading: false, user: null, logout: jest.fn() }),
 }));
 
+jest.mock('../src/context/ShopContext', () => ({
+  ShopProvider: ({ children }: { children: React.ReactNode }) => children,
+  useShop: () => ({
+    shops: [],
+    activeShop: null,
+    activeShopId: null,
+    loading: false,
+    error: null,
+    selectShop: jest.fn(),
+    createShop: jest.fn(),
+    updateShop: jest.fn(),
+  }),
+}));
+
+jest.mock('../src/services/notificationService', () => ({
+  configure: jest.fn(),
+}));
+
 jest.mock('../src/navigation/RootNavigator', () => {
   const MockRootNavigator = () => null;
   return {

@@ -15,6 +15,7 @@ import { createUserInFirestore, resolveRole } from '../../services/userService';
 import Colors from '../../constants/Colors';
 import Icon from '../../components/Icon';
 import ICONS from '../../constants/Icons';
+import { getPasswordChecks, validatePasswordStrength } from '../../utils/passwordUtils';
 
 const SignupScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -24,6 +25,7 @@ const SignupScreen = ({ navigation }) => {
   const [secureText, setSecureText] = useState(true);
   const [secureConfirm, setSecureConfirm] = useState(true);
   const [error, setError] = useState('');
+  const passwordChecks = getPasswordChecks(password);
 
   const getErrorMessage = (code) => {
     switch (code) {
@@ -51,10 +53,13 @@ const SignupScreen = ({ navigation }) => {
       setError('Please enter a password.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+
+    const passwordValidation = validatePasswordStrength(password);
+    if (!passwordValidation.isValid) {
+      setError(passwordValidation.message);
       return;
     }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match.');
       return;
@@ -158,6 +163,25 @@ const SignupScreen = ({ navigation }) => {
                   color={Colors.textMuted}
                 />
               </TouchableOpacity>
+            </View>
+            <View style={styles.passwordHints}>
+              {passwordChecks.map((check) => (
+                <View key={check.key} style={styles.passwordHintRow}>
+                  <Icon
+                    name={check.passed ? ICONS.check : ICONS.info}
+                    size={14}
+                    color={check.passed ? Colors.accentDark : Colors.textMuted}
+                    style={styles.passwordHintIcon}
+                  />
+                  <Text
+                    style={[
+                      styles.passwordHintText,
+                      check.passed && styles.passwordHintTextPassed,
+                    ]}>
+                    {check.label}
+                  </Text>
+                </View>
+              ))}
             </View>
           </View>
 
@@ -347,6 +371,32 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   eyeBtn: { paddingHorizontal: 14 },
+  passwordHints: {
+    marginTop: 10,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  passwordHintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  passwordHintIcon: {
+    marginRight: 8,
+  },
+  passwordHintText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  passwordHintTextPassed: {
+    color: Colors.accentDark,
+    fontWeight: '600',
+  },
   roleHint: {
     backgroundColor: '#EBF8FF',
     borderWidth: 1,

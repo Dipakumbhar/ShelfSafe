@@ -9,52 +9,53 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { login } from '../../services/authService';
+import { sendPasswordReset } from '../../services/authService';
 import Colors from '../../constants/Colors';
 import Icon from '../../components/Icon';
 import ICONS from '../../constants/Icons';
 
-const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+const ForgotPasswordScreen = ({ navigation, route }) => {
+  const [email, setEmail] = useState(route?.params?.prefillEmail || '');
   const [loading, setLoading] = useState(false);
-  const [secureText, setSecureText] = useState(true);
   const [error, setError] = useState('');
 
   const getErrorMessage = (code) => {
     switch (code) {
       case 'auth/user-not-found':
         return 'No account found with this email.';
-      case 'auth/wrong-password':
-        return 'Incorrect password. Please try again.';
       case 'auth/invalid-email':
         return 'Please enter a valid email address.';
       case 'auth/too-many-requests':
-        return 'Too many attempts. Please try again later.';
-      case 'auth/invalid-credential':
-        return 'Invalid email or password.';
+        return 'Too many requests. Please try again later.';
       default:
-        return 'Login failed. Please try again.';
+        return 'Could not send reset email. Please try again.';
     }
   };
 
-  const handleLogin = async () => {
+  const handleReset = async () => {
     setError('');
 
     if (!email.trim()) {
-      setError('Please enter your email address.');
+      setError('Please enter your registered email address.');
       return;
     }
-    if (!password.trim()) {
-      setError('Please enter your password.');
+
+    if (loading) {
       return;
     }
 
     setLoading(true);
     try {
-      await login(email, password);
-      // Auth state listener in AuthContext will handle navigation
+      const normalizedEmail = email.trim().toLowerCase();
+      await sendPasswordReset(normalizedEmail);
+
+      Alert.alert(
+        'Reset Email Sent',
+        `A password reset link has been sent to ${normalizedEmail}.`,
+        [{ text: 'Back to Sign In', onPress: () => navigation.goBack() }],
+      );
     } catch (err) {
       setError(getErrorMessage(err.code));
     } finally {
@@ -69,35 +70,31 @@ const LoginScreen = ({ navigation }) => {
       <ScrollView
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled">
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoBox}>
             <Text style={styles.logoText}>SS</Text>
           </View>
-          <Text style={styles.appName}>ShelfSafe</Text>
+          <Text style={styles.appName}>Forgot Password</Text>
           <Text style={styles.tagline}>
-            Smart Expiry & Inventory Management
+            We will send a reset link to your registered email
           </Text>
         </View>
 
-        {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Welcome Back</Text>
+          <Text style={styles.cardTitle}>Reset Password</Text>
           <Text style={styles.cardSubtitle}>
-            Sign in to access your account
+            Enter the email linked to your ShelfSafe account.
           </Text>
 
-          {/* Error Banner */}
-          {error !== '' && (
+          {error !== '' ? (
             <View style={styles.errorBox}>
               <View style={styles.errorContent}>
                 <Icon name={ICONS.warning} size={16} color={Colors.danger} style={styles.errorIcon} />
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             </View>
-          )}
+          ) : null}
 
-          {/* Email Input */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email Address</Text>
             <TextInput
@@ -116,73 +113,26 @@ const LoginScreen = ({ navigation }) => {
             />
           </View>
 
-          {/* Password Input */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Enter your password"
-                placeholderTextColor={Colors.textMuted}
-                secureTextEntry={secureText}
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (error) setError('');
-                }}
-                editable={!loading}
-              />
-              <TouchableOpacity
-                onPress={() => setSecureText(!secureText)}
-                style={styles.eyeBtn}>
-                <Icon
-                  name={secureText ? ICONS.visibility : ICONS.visibilityOff}
-                  size={20}
-                  color={Colors.textMuted}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
           <TouchableOpacity
-            style={styles.forgotBtn}
-            onPress={() => navigation.navigate('ForgotPassword', { prefillEmail: email.trim() })}
-            disabled={loading}
-            activeOpacity={0.8}>
-            <Text style={styles.forgotBtnText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
-          {/* Login Button */}
-          <TouchableOpacity
-            style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
-            onPress={handleLogin}
+            style={[styles.resetBtn, loading && styles.resetBtnDisabled]}
+            onPress={handleReset}
             disabled={loading}
             activeOpacity={0.8}>
             {loading ? (
               <ActivityIndicator color={Colors.white} size="small" />
             ) : (
-              <Text style={styles.loginBtnText}>Sign In</Text>
+              <Text style={styles.resetBtnText}>Send Reset Link</Text>
             )}
           </TouchableOpacity>
 
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Navigate to Signup */}
           <TouchableOpacity
-            style={styles.signupBtn}
-            onPress={() => navigation.navigate('Signup')}
+            style={styles.backBtn}
+            onPress={() => navigation.goBack()}
             disabled={loading}
             activeOpacity={0.8}>
-            <Text style={styles.signupBtnText}>Create New Account</Text>
+            <Text style={styles.backBtnText}>Back to Sign In</Text>
           </TouchableOpacity>
         </View>
-
-        <Text style={styles.footer}>© 2026 ShelfSafe. All rights reserved.</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -220,7 +170,12 @@ const styles = StyleSheet.create({
     color: Colors.white,
     letterSpacing: 0.5,
   },
-  tagline: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
+  tagline: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 4,
+    textAlign: 'center',
+  },
   card: {
     width: '100%',
     backgroundColor: Colors.white,
@@ -242,6 +197,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     marginBottom: 24,
+    lineHeight: 19,
   },
   errorBox: {
     backgroundColor: '#FFF5F5',
@@ -265,7 +221,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     flex: 1,
   },
-  inputGroup: { marginBottom: 16 },
+  inputGroup: { marginBottom: 18 },
   label: {
     fontSize: 13,
     fontWeight: '600',
@@ -282,79 +238,30 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     backgroundColor: Colors.background,
   },
-  passwordRow: {
-    flexDirection: 'row',
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: 10,
-    backgroundColor: Colors.background,
-    alignItems: 'center',
-  },
-  passwordInput: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 15,
-    color: Colors.textPrimary,
-  },
-  eyeBtn: { paddingHorizontal: 14 },
-  forgotBtn: {
-    alignSelf: 'flex-end',
-    marginTop: -4,
-    marginBottom: 10,
-  },
-  forgotBtnText: {
-    color: Colors.primary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  loginBtn: {
+  resetBtn: {
     backgroundColor: Colors.primary,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
     minHeight: 50,
   },
-  loginBtnDisabled: { opacity: 0.7 },
-  loginBtnText: {
+  resetBtnDisabled: { opacity: 0.7 },
+  resetBtnText: {
     color: Colors.white,
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0.3,
   },
-  dividerRow: {
-    flexDirection: 'row',
+  backBtn: {
+    marginTop: 16,
     alignItems: 'center',
-    marginVertical: 20,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: Colors.divider },
-  dividerText: {
-    marginHorizontal: 12,
-    fontSize: 12,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  signupBtn: {
-    backgroundColor: Colors.white,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-  signupBtnText: {
+  backBtnText: {
     color: Colors.primary,
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  footer: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 11,
-    marginTop: 24,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
-export default LoginScreen;
+export default ForgotPasswordScreen;

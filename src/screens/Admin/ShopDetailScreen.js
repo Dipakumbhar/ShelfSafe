@@ -6,136 +6,169 @@ import {
   ScrollView,
   SafeAreaView,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
-import { MOCK_SHOPS, MOCK_PRODUCTS } from '../../constants/MockData';
+import useAdminInventory from '../../hooks/useAdminInventory';
 import Colors from '../../constants/Colors';
 import Icon from '../../components/Icon';
 import ICONS from '../../constants/Icons';
 
-const InfoRow = ({ label, value, valueColor }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>{value}</Text>
-  </View>
-);
+const statusConfig = {
+  fresh: { color: Colors.accent, bg: '#EBF9F1', label: 'Fresh' },
+  expiring: { color: Colors.warning, bg: '#FFF8E1', label: 'Expiring Soon' },
+  expired: { color: Colors.danger, bg: '#FDECEA', label: 'Expired' },
+};
 
 const ShopDetailScreen = ({ route, navigation }) => {
-  const { shopId } = route.params;
-  const shop = MOCK_SHOPS.find((s) => s.id === shopId);
+  const { shopkeeperId } = route.params;
+  const { shopkeepers, loading } = useAdminInventory();
+  const shopkeeper = shopkeepers.find((entry) => entry.id === shopkeeperId);
 
-  if (!shop) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.notFound}>
-          <Text style={styles.notFoundText}>Shop not found.</Text>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading shopkeeper profile...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Show products as if they belong to this shop (mock: filter by index for variety)
-  const shopProducts = MOCK_PRODUCTS.slice(0, 3);
+  if (!shopkeeper) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.center}>
+          <Text style={styles.notFoundText}>Shopkeeper not found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  const statusConfig = {
-    fresh: { color: Colors.accent, bg: '#EBF9F1', label: 'Fresh' },
-    expiring: { color: Colors.warning, bg: '#FFF8E1', label: 'Expiring Soon' },
-    expired: { color: Colors.danger, bg: '#FDECEA', label: 'Expired' },
-  };
-
-  const isCompliant = shop.expiredItems === 0;
+  const displayName = shopkeeper.name || 'Shopkeeper Profile';
+  const avatarLetter = (displayName || shopkeeper.email || 'S').slice(0, 1).toUpperCase();
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Shop Banner */}
         <View style={styles.banner}>
-          <View style={styles.shopIconBox}>
-            <Icon name={ICONS.shop} size={32} color={Colors.white} />
+          <View style={styles.profileAvatar}>
+            <Text style={styles.profileAvatarText}>{avatarLetter}</Text>
           </View>
-          <Text style={styles.shopName}>{shop.name}</Text>
-          <Text style={styles.shopOwner}>Owner: {shop.owner}</Text>
-          <View style={styles.locationRow}>
-            <Icon name={ICONS.location} size={14} color="rgba(255,255,255,0.6)" style={styles.locationIcon} />
-            <Text style={styles.shopLocation}>{shop.location}</Text>
-          </View>
-          <Text style={styles.shopId}>Shop ID: {shop.id}</Text>
+          <Text style={styles.bannerTitle}>{displayName}</Text>
+          <Text style={styles.bannerSubtitle}>{shopkeeper.email}</Text>
+          <Text style={styles.bannerMeta}>Shopkeeper ID: {shopkeeper.id}</Text>
         </View>
 
-        {/* Stats Cards */}
         <View style={styles.statsRow}>
           <View style={[styles.statCard, { borderLeftColor: Colors.primary }]}>
-            <Text style={[styles.statValue, { color: Colors.primary }]}>{shop.totalProducts}</Text>
-            <Text style={styles.statLabel}>Total Products</Text>
+            <Text style={[styles.statValue, { color: Colors.primary }]}>{shopkeeper.totalProducts}</Text>
+            <Text style={styles.statLabel}>Products</Text>
           </View>
-          <View style={[styles.statCard, { borderLeftColor: Colors.warning }]}>
-            <Text style={[styles.statValue, { color: Colors.warning }]}>{shop.expiringItems}</Text>
-            <Text style={styles.statLabel}>Expiring</Text>
+          <View style={[styles.statCard, { borderLeftColor: Colors.info }]}>
+            <Text style={[styles.statValue, { color: Colors.info }]}>{shopkeeper.shopCount}</Text>
+            <Text style={styles.statLabel}>Stores</Text>
           </View>
           <View style={[styles.statCard, { borderLeftColor: Colors.danger }]}>
-            <Text style={[styles.statValue, { color: Colors.danger }]}>{shop.expiredItems}</Text>
-            <Text style={styles.statLabel}>Expired</Text>
+            <Text style={[styles.statValue, { color: Colors.danger }]}>{shopkeeper.alertCount}</Text>
+            <Text style={styles.statLabel}>Alerts</Text>
           </View>
         </View>
 
-        {/* Compliance Status */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Compliance Status</Text>
-          <View style={[
-            styles.complianceBadge,
-            { backgroundColor: isCompliant ? '#EBF9F1' : '#FDECEA' },
-          ]}>
-            <View style={styles.complianceContent}>
-              <Icon
-                name={isCompliant ? ICONS.complianceOK : ICONS.complianceFail}
-                size={18}
-                color={isCompliant ? Colors.accent : Colors.danger}
-                style={styles.complianceIcon}
-              />
-              <Text style={[
-                styles.complianceText,
-                { color: isCompliant ? Colors.accent : Colors.danger },
-              ]}>
-                {isCompliant
-                  ? 'Compliant — No expired items'
-                  : `Non-Compliant — ${shop.expiredItems} expired items found`}
-              </Text>
-            </View>
-          </View>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Stores and Inventory</Text>
+          <Text style={styles.sectionSubtitle}>
+            Structured as shopkeeper profile to stores to inventory.
+          </Text>
         </View>
 
-        {/* Sample Product List */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Sample Products</Text>
-          {shopProducts.map((p) => {
-            const config = statusConfig[p.status];
-            return (
-              <View key={p.id} style={styles.productRow}>
-                <View style={styles.productRowLeft}>
-                  <Text style={styles.productName}>{p.name}</Text>
-                  <Text style={styles.productMeta}>{p.expiryDate} · {p.quantity} {p.unit}</Text>
+        {shopkeeper.shops.length ? shopkeeper.shops.map((shop) => {
+          const isCompliant = shop.expiredItems === 0;
+
+          return (
+            <View key={shop.id} style={styles.card}>
+              <View style={styles.shopHeader}>
+                <View style={styles.shopHeaderLeft}>
+                  <Text style={styles.cardTitle}>{shop.name}</Text>
+                  <Text style={styles.shopAddress}>{shop.address || 'No address added'}</Text>
                 </View>
-                <View style={[styles.badge, { backgroundColor: config.bg }]}>
-                  <Text style={[styles.badgeText, { color: config.color }]}>{config.label}</Text>
+                <View style={styles.shopBadges}>
+                  {shop.id === shopkeeper.activeShopId ? (
+                    <View style={styles.activeBadge}>
+                      <Text style={styles.activeBadgeText}>Active</Text>
+                    </View>
+                  ) : null}
+                  {shop.isLegacy ? (
+                    <View style={styles.legacyBadge}>
+                      <Text style={styles.legacyBadgeText}>Legacy</Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
-            );
-          })}
-        </View>
 
-        {/* Admin Actions */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Admin Actions</Text>
-          <TouchableOpacity style={styles.actionBtn}>
-            <Icon name={ICONS.send} size={16} color={Colors.white} style={styles.actionBtnIcon} />
-            <Text style={styles.actionBtnText}>Send Compliance Warning</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, styles.actionBtnOutline]}>
-            <Icon name={ICONS.generateReport} size={16} color={Colors.primary} style={styles.actionBtnIcon} />
-            <Text style={[styles.actionBtnText, { color: Colors.primary }]}>Generate Report</Text>
-          </TouchableOpacity>
-        </View>
+              <View style={styles.shopStatsRow}>
+                <View style={styles.shopStatBox}>
+                  <Text style={styles.shopStatValue}>{shop.totalProducts}</Text>
+                  <Text style={styles.shopStatLabel}>Products</Text>
+                </View>
+                <View style={styles.shopStatBox}>
+                  <Text style={[styles.shopStatValue, { color: Colors.warning }]}>{shop.expiringItems}</Text>
+                  <Text style={styles.shopStatLabel}>Expiring</Text>
+                </View>
+                <View style={styles.shopStatBox}>
+                  <Text style={[styles.shopStatValue, { color: Colors.danger }]}>{shop.expiredItems}</Text>
+                  <Text style={styles.shopStatLabel}>Expired</Text>
+                </View>
+              </View>
 
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+              <View
+                style={[
+                  styles.complianceBadge,
+                  { backgroundColor: isCompliant ? '#EBF9F1' : '#FDECEA' },
+                ]}>
+                <Icon
+                  name={isCompliant ? ICONS.complianceOK : ICONS.complianceFail}
+                  size={16}
+                  color={isCompliant ? Colors.accentDark : Colors.danger}
+                  style={styles.complianceIcon}
+                />
+                <Text
+                  style={[
+                    styles.complianceText,
+                    { color: isCompliant ? Colors.accentDark : Colors.danger },
+                  ]}>
+                  {isCompliant ? 'Compliant inventory' : `${shop.expiredItems} expired items need attention`}
+                </Text>
+              </View>
+
+              <Text style={styles.inventoryTitle}>Inventory</Text>
+              {shop.inventory.length ? shop.inventory.map((product) => {
+                const config = statusConfig[product.status];
+                return (
+                  <View key={product.id} style={styles.productRow}>
+                    <View style={styles.productRowLeft}>
+                      <Text style={styles.productName}>{product.name}</Text>
+                      <Text style={styles.productMeta}>
+                        {product.expiryDate} - {product.quantity} {product.unit}
+                      </Text>
+                    </View>
+                    <View style={[styles.badge, { backgroundColor: config.bg }]}>
+                      <Text style={[styles.badgeText, { color: config.color }]}>{config.label}</Text>
+                    </View>
+                  </View>
+                );
+              }) : (
+                <Text style={styles.emptyInventoryText}>No products stored in this shop yet.</Text>
+              )}
+            </View>
+          );
+        }) : (
+          <View style={styles.card}>
+            <Text style={styles.emptyInventoryText}>No stores available for this shopkeeper yet.</Text>
+          </View>
+        )}
+
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.85}>
           <Icon name={ICONS.back} size={16} color={Colors.textSecondary} style={styles.backBtnIcon} />
           <Text style={styles.backBtnText}>Back to Dashboard</Text>
         </TouchableOpacity>
@@ -147,6 +180,9 @@ const ShopDetailScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
   container: { padding: 20, paddingBottom: 40 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, color: Colors.textSecondary, fontSize: 14 },
+  notFoundText: { color: Colors.textMuted, fontSize: 16 },
   banner: {
     backgroundColor: Colors.primaryDark,
     borderRadius: 16,
@@ -154,7 +190,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  shopIconBox: {
+  profileAvatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
@@ -163,24 +199,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  shopName: { color: Colors.white, fontSize: 22, fontWeight: '800' },
-  shopOwner: { color: 'rgba(255,255,255,0.75)', fontSize: 14, marginTop: 4 },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
+  profileAvatarText: {
+    color: Colors.white,
+    fontSize: 28,
+    fontWeight: '800',
   },
-  locationIcon: {
-    marginRight: 4,
-  },
-  shopLocation: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
-  shopId: {
-    color: 'rgba(255,255,255,0.4)',
+  bannerTitle: { color: Colors.white, fontSize: 22, fontWeight: '800' },
+  bannerSubtitle: { color: 'rgba(255,255,255,0.75)', fontSize: 14, marginTop: 4 },
+  bannerMeta: {
+    color: 'rgba(255,255,255,0.45)',
     fontSize: 11,
     marginTop: 8,
     fontFamily: 'monospace',
   },
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 18 },
   statCard: {
     flex: 1,
     backgroundColor: Colors.white,
@@ -195,6 +227,9 @@ const styles = StyleSheet.create({
   },
   statValue: { fontSize: 22, fontWeight: '800' },
   statLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
+  sectionHeader: { marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
+  sectionSubtitle: { marginTop: 4, fontSize: 12, color: Colors.textSecondary },
   card: {
     backgroundColor: Colors.white,
     borderRadius: 14,
@@ -206,17 +241,59 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: Colors.primary, marginBottom: 14 },
-  complianceBadge: { borderRadius: 10, padding: 14 },
-  complianceContent: {
+  shopHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
-  complianceIcon: {
-    marginRight: 8,
+  shopHeaderLeft: { flex: 1, paddingRight: 12 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: Colors.primary, marginBottom: 6 },
+  shopAddress: { fontSize: 12, color: Colors.textSecondary, lineHeight: 18 },
+  shopBadges: { alignItems: 'flex-end' },
+  activeBadge: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 8,
   },
-  complianceText: { fontSize: 14, fontWeight: '700' },
+  activeBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
+  legacyBadge: {
+    backgroundColor: '#FFF3E0',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  legacyBadgeText: { fontSize: 11, fontWeight: '700', color: '#7D4E00' },
+  shopStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: Colors.background,
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginBottom: 12,
+  },
+  shopStatBox: { alignItems: 'center' },
+  shopStatValue: { fontSize: 20, fontWeight: '800', color: Colors.textPrimary },
+  shopStatLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2, fontWeight: '500' },
+  complianceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 14,
+  },
+  complianceIcon: { marginRight: 8 },
+  complianceText: { fontSize: 13, fontWeight: '700' },
+  inventoryTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
   productRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -225,50 +302,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.divider,
   },
-  productRowLeft: { flex: 1 },
+  productRowLeft: { flex: 1, paddingRight: 12 },
   productName: { fontSize: 14, fontWeight: '600', color: Colors.textPrimary },
   productMeta: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primary,
-    paddingVertical: 13,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  actionBtnOutline: {
-    backgroundColor: Colors.white,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-  actionBtnIcon: {
-    marginRight: 8,
-  },
-  actionBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
+  emptyInventoryText: { fontSize: 13, color: Colors.textSecondary, marginTop: 6 },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
   },
-  backBtnIcon: {
-    marginRight: 6,
-  },
+  backBtnIcon: { marginRight: 6 },
   backBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
-  notFound: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  notFoundText: { color: Colors.textMuted, fontSize: 16 },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  infoLabel: { fontSize: 13, color: Colors.textSecondary },
-  infoValue: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
 });
 
 export default ShopDetailScreen;

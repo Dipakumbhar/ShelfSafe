@@ -26,10 +26,32 @@ export const login = async (email, password) => {
 };
 
 /**
+ * Send a Firebase password reset email to the given address.
+ */
+export const sendPasswordReset = async (email) => {
+  await auth().sendPasswordResetEmail(email.trim().toLowerCase());
+};
+
+/**
  * Sign out the currently authenticated user.
  */
 export const logout = async () => {
   await auth().signOut();
+};
+
+export const updateCurrentUserEmail = async (email) => {
+  const currentUser = auth().currentUser;
+
+  if (!currentUser) {
+    throw new Error('No authenticated user found.');
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  await currentUser.updateEmail(normalizedEmail);
+  await currentUser.reload();
+
+  return auth().currentUser;
 };
 
 /**

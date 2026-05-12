@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import auth from '@react-native-firebase/auth';
-import { getUserData } from '../services/userService';
+import { getUserDataWithRetry } from '../services/userService';
 import { logout as firebaseLogout } from '../services/authService';
 
 const AuthContext = createContext(null);
@@ -10,44 +10,102 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for Firebase auth state changes
-    const unsubscribe = auth().onAuthStateChanged(async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          // Fetch the user's role from Firestore
-          const userData = await getUserData(firebaseUser.uid);
-          if (userData) {
-            setUser({
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              role: userData.role,
-            });
-          } else {
-            // User doc not found — sign them out
-            await auth().signOut();
-            setUser(null);
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
+    let isMounted = true;
+
+    const syncAuthenticatedUser = async (firebaseUser) => {
+      if (!firebaseUser) {
+        if (isMounted) {
           setUser(null);
         }
-      } else {
+        return;
+      }
+
+      const userData = await getUserDataWithRetry(firebaseUser.uid, {
+        attempts: 16,
+        delayMs: 250,
+      });
+
+      if (userData) {
+        if (isMounted) {
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || userData.email,
+            role: userData.role,
+          });
+        }
+        return;
+      }
+
+      console.warn('[AuthContext] User document missing after retry. Signing out.');
+      await auth().signOut();
+
+      if (isMounted) {
         setUser(null);
       }
-      setLoading(false);
+    };
+
+    const unsubscribe = auth().onAuthStateChanged(async (firebaseUser) => {
+      try {
+        await syncAuthenticatedUser(firebaseUser);
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        if (isMounted) {
+          setUser(null);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
+
+  const refreshUser = async () => {
+    const currentUser = auth().currentUser;
+
+    if (!currentUser) {
+      setUser(null);
+      return null;
+    }
+
+    setLoading(true);
+    try {
+      await currentUser.reload();
+      const refreshedUser = auth().currentUser || currentUser;
+      const userData = await getUserDataWithRetry(refreshedUser.uid, {
+        attempts: 8,
+        delayMs: 200,
+      });
+
+      if (!userData) {
+        setUser(null);
+        return null;
+      }
+
+      const nextUser = {
+        uid: refreshedUser.uid,
+        email: refreshedUser.email || userData.email,
+        role: userData.role,
+      };
+
+      setUser(nextUser);
+      return nextUser;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const logout = async () => {
     try {
-      // Cancel all scheduled expiry notifications before signing out
       const { cancelAllAlerts } = require('../services/notificationService');
       cancelAllAlerts();
 
       await firebaseLogout();
-      // onAuthStateChanged will automatically set user to null
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -60,6 +118,7 @@ export const AuthProvider = ({ children }) => {
         loading,
         isAuthenticated: user !== null,
         logout,
+        refreshUser,
       }}>
       {children}
     </AuthContext.Provider>

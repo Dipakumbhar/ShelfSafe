@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { subscribeToProducts } from '../services/productService';
 import { useAuth } from '../context/AuthContext';
+import { useShop } from '../context/ShopContext';
 
 /**
  * Custom hook that subscribes to the current shopkeeper's product list
@@ -12,16 +13,31 @@ import { useAuth } from '../context/AuthContext';
  *   loading   - true while the first snapshot is pending
  *   error     - error message string or null
  */
-const useProducts = () => {
+const useProducts = (options = {}) => {
   const { user } = useAuth();
+  const { activeShopId, loading: shopsLoading } = useShop();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const includeAllShops = options.allShops === true;
 
   useEffect(() => {
     if (!user?.uid) {
       setProducts([]);
       setLoading(false);
+      setError(null);
+      return;
+    }
+
+    if (!includeAllShops && shopsLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (!includeAllShops && !activeShopId) {
+      setProducts([]);
+      setLoading(false);
+      setError(null);
       return;
     }
 
@@ -29,6 +45,7 @@ const useProducts = () => {
 
     const unsubscribe = subscribeToProducts(
       user.uid,
+      { shopId: includeAllShops ? null : activeShopId },
       (data) => {
         setProducts(data);
         setLoading(false);
@@ -42,7 +59,7 @@ const useProducts = () => {
 
     // Detach listener when the component unmounts or user changes
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [activeShopId, includeAllShops, shopsLoading, user?.uid]);
 
   return { products, loading, error };
 };
