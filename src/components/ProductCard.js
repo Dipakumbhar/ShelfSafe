@@ -45,8 +45,12 @@ const ProductCard = ({ item, onDelete, onEdit }) => {
     <View style={styles.card}>
       <View style={styles.cardTop}>
         <View style={styles.cardLeft}>
-          <Text style={styles.productName}>{item.name}</Text>
-          <Text style={styles.category}>{item.category}</Text>
+          <Text style={styles.productName} numberOfLines={1} ellipsizeMode="tail">
+            {item.name}
+          </Text>
+          <Text style={styles.category} numberOfLines={1} ellipsizeMode="tail">
+            {item.category}
+          </Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: config.bg }]}>
           <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
@@ -108,10 +112,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  cardLeft: { flex: 1 },
+  cardLeft: { flex: 1, minWidth: 0, marginRight: 10 },
   productName: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
   category: { fontSize: 12, color: Colors.textMuted, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '700' },
   divider: { height: 1, backgroundColor: Colors.divider, marginVertical: 12 },
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between' },

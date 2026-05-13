@@ -8,7 +8,9 @@ import {
   SafeAreaView,
   TextInput,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import useProducts from '../../hooks/useProducts';
 import { deleteProduct } from '../../services/productService';
 import Colors from '../../constants/Colors';
@@ -17,9 +19,10 @@ import ProductCard from '../../components/ProductCard';
 import ICONS from '../../constants/Icons';
 
 const ProductListScreen = ({ navigation }) => {
-  const { products, loading } = useProducts();
+  const { products, loading, refresh } = useProducts();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
 
   const filters = ['all', 'fresh', 'expiring', 'expired'];
 
@@ -47,6 +50,21 @@ const ProductListScreen = ({ navigation }) => {
   ), [handleDelete, handleEdit]);
 
   const keyExtractor = useCallback((item) => item.id, []);
+
+  const handleRefresh = useCallback(async (showSpinner = true) => {
+    if (showSpinner) setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      if (showSpinner) setRefreshing(false);
+    }
+  }, [refresh]);
+
+  useFocusEffect(
+    useCallback(() => {
+      handleRefresh(false);
+    }, [handleRefresh]),
+  );
 
   if (loading) {
     return (
@@ -76,17 +94,23 @@ const ProductListScreen = ({ navigation }) => {
       </View>
 
       {/* Filter Pills */}
-      <View style={styles.filterRow}>
-        {filters.map((f) => (
-          <TouchableOpacity
-            key={f}
-            style={[styles.filterPill, filter === f && styles.filterPillActive]}
-            onPress={() => setFilter(f)}>
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      <View style={styles.filterContainer}>
+        <FlatList
+          data={filters}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => item}
+          contentContainerStyle={styles.filterRow}
+          renderItem={({ item: f }) => (
+            <TouchableOpacity
+              style={[styles.filterPill, filter === f && styles.filterPillActive]}
+              onPress={() => setFilter(f)}>
+              <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
+                {f.charAt(0).toUpperCase() + f.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          )}
+        />
       </View>
 
       <FlatList
@@ -94,6 +118,10 @@ const ProductListScreen = ({ navigation }) => {
         keyExtractor={keyExtractor}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        refreshing={refreshing}
+        onRefresh={() => handleRefresh(true)}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Icon name={ICONS.empty} size={48} color={Colors.textMuted} />
@@ -147,10 +175,12 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   filterRow: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 8,
+    flexGrow: 1,
+  },
+  filterContainer: {
     backgroundColor: Colors.white,
     borderBottomWidth: 1,
     borderBottomColor: Colors.divider,
@@ -166,12 +196,12 @@ const styles = StyleSheet.create({
   filterPillActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
   filterTextActive: { color: Colors.white, fontWeight: '600' },
-  list: { padding: 16, paddingBottom: 100 },
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyText: { color: Colors.textMuted, fontSize: 15, marginTop: 10 },
+  list: { flexGrow: 1, padding: 16, paddingBottom: 160 },
+  empty: { alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 20 },
+  emptyText: { color: Colors.textMuted, fontSize: 15, marginTop: 10, textAlign: 'center' },
   fab: {
     position: 'absolute',
-    bottom: 20,
+    bottom: Platform.OS === 'ios' ? 102 : 84,
     right: 20,
     flexDirection: 'row',
     alignItems: 'center',
@@ -185,6 +215,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 6,
+    zIndex: 5,
   },
   fabText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
 });
