@@ -68,7 +68,7 @@ const ProductCard = ({ item, onDelete, onEdit }) => {
         </View>
         <View style={styles.infoItem}>
           <Text style={styles.infoLabel}>Days Left</Text>
-          <Text style={[styles.infoValue, { color: config.color, fontWeight: '700' }]}>
+          <Text style={[styles.infoValue, styles.infoValueStrong, { color: config.color }]}>
             {item.daysLeft == null
               ? '—'
               : item.daysLeft < 0
@@ -118,6 +118,7 @@ const styles = StyleSheet.create({
   infoItem: { alignItems: 'center' },
   infoLabel: { fontSize: 11, color: Colors.textMuted, fontWeight: '500', marginBottom: 2 },
   infoValue: { fontSize: 13, color: Colors.textPrimary, fontWeight: '600' },
+  infoValueStrong: { fontWeight: '700' },
   cardActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -148,3 +149,4 @@ const styles = StyleSheet.create({
 });
 
 export default React.memo(ProductCard);
+

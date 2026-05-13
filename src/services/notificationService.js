@@ -1,36 +1,7 @@
-/**
- * notificationService.js
- *
- * Local push notification service for expiry alerts.
- *
- * Uses react-native-push-notification to schedule local notifications
- * when a product is added. Alerts fire 2 days before expiry (or immediately
- * if the product expires within 2 days).
- *
- * Key functions:
- *   - configure()                   → call once at app start
- *   - scheduleExpiryAlert()         → schedule notification; returns 'scheduled' | 'immediate' | 'skipped'
- *   - cancelProductAlert()          → cancel a scheduled notification by product ID
- *   - cancelAllAlerts()             → cancel all scheduled notifications
- *   - requestPermissions()          → explicitly request permissions
- */
-
-import { Platform } from 'react-native';
-import PushNotification from 'react-native-push-notification';
-
-// ---------------------------------------------------------------------------
-// CONSTANTS
-// ---------------------------------------------------------------------------
-const CHANNEL_ID = 'shelfsafe-expiry-alerts';
-const CHANNEL_NAME = 'Expiry Alerts';
-const CHANNEL_DESC = 'Notifications for products approaching their expiry date';
 
 /** How many days before expiry to send the alert */
 const ALERT_DAYS_BEFORE = 2;
 
-// ---------------------------------------------------------------------------
-// CONFIGURATION — call once at app startup
-// ---------------------------------------------------------------------------
 
 export const configure = () => {
   // Create the notification channel (Android 8+ requirement)
@@ -45,27 +16,22 @@ export const configure = () => {
       vibrate: true,
     },
     (created) => {
-      console.log(`[NotificationService] Channel "${CHANNEL_ID}" created: ${created}`);
     },
   );
 
   PushNotification.configure({
     onNotification: function (notification) {
-      console.log('[NotificationService] Received:', notification);
       if (Platform.OS === 'ios') {
         notification.finish?.('UIBackgroundFetchResultNoData');
       }
     },
     onRegister: function (token) {
-      console.log('[NotificationService] Token:', token);
     },
     permissions: { alert: true, badge: true, sound: true },
     // Permissions auto-requested on iOS; Android 13+ handled separately in App.tsx
     requestPermissions: Platform.OS === 'ios',
     popInitialNotification: true,
   });
-
-  console.log('[NotificationService] Configured successfully');
 };
 
 // ---------------------------------------------------------------------------
@@ -116,14 +82,7 @@ const parseDateString = (dateStr) => {
   return null;
 };
 
-/**
- * Determine when to fire the notification.
- *
- * Returns:
- *   - null          → product already expired, skip
- *   - Date (future) → schedule at 9 AM, 2 days before expiry
- *   - Date (now+5s) → expiry within 2 days, fire immediately
- */
+
 const calculateNotifyDate = (expiryDateStr) => {
   const expiryDate = parseDateString(expiryDateStr);
   if (!expiryDate) return null;
@@ -138,7 +97,6 @@ const calculateNotifyDate = (expiryDateStr) => {
 
   // Already expired — do not schedule
   if (expiryDay < today) {
-    console.log('[NotificationService] Product already expired — skipping');
     return null;
   }
 
@@ -150,25 +108,21 @@ const calculateNotifyDate = (expiryDateStr) => {
 
   // Notify date already passed → fire in 5 seconds (expiry is within 2 days)
   if (notifyDate <= now) {
-    console.log('[NotificationService] Expiry within 2 days — firing immediately');
     return new Date(now.getTime() + 5000);
   }
 
   return notifyDate;
 };
 
-// ---------------------------------------------------------------------------
-// SCHEDULE / CANCEL
-// ---------------------------------------------------------------------------
 
-/**
- * Simple string hash → numeric notification ID
- */
 const hashCode = (str) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
+    // Keep stable 32-bit hash output for backward-compatible notification IDs.
+    // eslint-disable-next-line no-bitwise
     hash = (hash << 5) - hash + char;
+    // eslint-disable-next-line no-bitwise
     hash |= 0;
   }
   return hash;
@@ -193,7 +147,6 @@ export const scheduleExpiryAlert = ({
 }) => {
   // ── Respect user notification preference ──────────────────────────────────
   if (!notificationsEnabled) {
-    console.log(`[NotificationService] Notifications disabled — skipping for "${productName}"`);
     return 'skipped_disabled';
   }
 
@@ -264,11 +217,6 @@ export const scheduleExpiryAlert = ({
     return 'skipped_expired'; // graceful degradation
   }
 
-  console.log(
-    `[NotificationService] Alert "${isImmediate ? 'IMMEDIATE' : 'SCHEDULED'}" for` +
-    ` "${productName}" at ${notifyDate.toLocaleString()} (ID: ${notificationId})`,
-  );
-
   return isImmediate ? 'immediate' : 'scheduled';
 };
 
@@ -282,7 +230,6 @@ export const cancelProductAlert = (productId) => {
   if (!productId) return;
   const notificationId = Math.abs(hashCode(productId)).toString();
   PushNotification.cancelLocalNotification(notificationId);
-  console.log(`[NotificationService] Cancelled alert for product ${productId} (ID: ${notificationId})`);
 };
 
 /**
@@ -291,7 +238,6 @@ export const cancelProductAlert = (productId) => {
  */
 export const cancelAllAlerts = () => {
   PushNotification.cancelAllLocalNotifications();
-  console.log('[NotificationService] All alerts cancelled');
 };
 
 /**
@@ -304,3 +250,4 @@ export const requestPermissions = () => {
     PushNotification.requestPermissions();
   }
 };
+

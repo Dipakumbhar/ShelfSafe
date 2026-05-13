@@ -1,10 +1,10 @@
 import React, { useRef } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   Animated,
   Platform,
+  Easing,
 } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -23,38 +23,21 @@ import EditProfileScreen from '../screens/Shopkeeper/EditProfileScreen';
 import MyShopScreen from '../screens/Shopkeeper/MyShopScreen';
 
 // ─── TAB ICON COMPONENT ───────────────────────────────────────────────────────
-const TabIcon = ({ iconName, label, focused, isCenter }) => {
+const TabIcon = ({ iconName, focused }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   // Animate on focus change
   React.useEffect(() => {
-    Animated.spring(scaleAnim, {
-      toValue: focused ? 1.18 : 1,
+    Animated.timing(scaleAnim, {
+      toValue: focused ? 1.08 : 1,
+      duration: 180,
+      easing: Easing.out(Easing.quad),
       useNativeDriver: true,
-      speed: 20,
-      bounciness: 8,
     }).start();
   }, [focused, scaleAnim]);
 
-  const iconColor = isCenter
-    ? Colors.white
-    : focused
-    ? Colors.primary
-    : Colors.textMuted;
-  const iconSize = isCenter ? 28 : 24;
-
-  if (isCenter) {
-    return (
-      <Animated.View
-        style={[
-          tabStyles.centerBtn,
-          { transform: [{ scale: scaleAnim }] },
-          focused && tabStyles.centerBtnFocused,
-        ]}>
-        <Icon name={iconName} size={iconSize} color={iconColor} />
-      </Animated.View>
-    );
-  }
+  const iconColor = focused ? Colors.primary : Colors.textMuted;
+  const iconSize = 24;
 
   return (
     <Animated.View
@@ -63,6 +46,17 @@ const TabIcon = ({ iconName, label, focused, isCenter }) => {
       {focused && <View style={tabStyles.activeDot} />}
     </Animated.View>
   );
+};
+
+const createTabBarIcon = (iconName) => ({ focused }) => (
+  <TabIcon iconName={iconName} focused={focused} />
+);
+
+const TAB_BAR_ICONS = {
+  dashboard: createTabBarIcon(ICONS.dashboard),
+  products: createTabBarIcon(ICONS.products),
+  add: createTabBarIcon(ICONS.add),
+  profile: createTabBarIcon(ICONS.profile),
 };
 
 // ─── NESTED STACKS ────────────────────────────────────────────────────────────
@@ -128,10 +122,8 @@ const TabNavigator = () => {
         name="Dashboard"
         component={DashboardStack}
         options={{
-          tabBarLabel: 'Dashboard',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName={ICONS.dashboard} label="Dashboard" focused={focused} />
-          ),
+          tabBarLabel: 'Home',
+          tabBarIcon: TAB_BAR_ICONS.dashboard,
         }}
       />
 
@@ -140,22 +132,16 @@ const TabNavigator = () => {
         component={ProductsStack}
         options={{
           tabBarLabel: 'Products',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName={ICONS.products} label="Products" focused={focused} />
-          ),
+          tabBarIcon: TAB_BAR_ICONS.products,
         }}
       />
 
-      {/* CENTER: Add Product */}
       <Tab.Screen
         name="AddTab"
         component={AddProductStack}
         options={{
-          tabBarLabel: '',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName={ICONS.add} label="" focused={focused} isCenter />
-          ),
-          tabBarItemStyle: tabStyles.centerItem,
+          tabBarLabel: 'Add',
+          tabBarIcon: TAB_BAR_ICONS.add,
         }}
       />
 
@@ -164,9 +150,7 @@ const TabNavigator = () => {
         component={ProfileStackNavigator}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ focused }) => (
-            <TabIcon iconName={ICONS.profile} label="Profile" focused={focused} />
-          ),
+          tabBarIcon: TAB_BAR_ICONS.profile,
         }}
       />
     </Tab.Navigator>
@@ -198,38 +182,10 @@ const tabStyles = StyleSheet.create({
     paddingTop: 4,
     height: 54,
   },
-  centerItem: {
-    // Extra top offset so the center button floats above the bar
-    marginTop: -24,
-    height: 70,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
   label: {
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
-  },
-
-  // Center floating button
-  centerBtn: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 10,
-    elevation: 10,
-    borderWidth: 4,
-    borderColor: Colors.white,
-  },
-  centerBtnFocused: {
-    backgroundColor: Colors.primaryLight,
-    shadowOpacity: 0.6,
   },
 
   // Regular tab icon

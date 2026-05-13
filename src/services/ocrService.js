@@ -1,7 +1,3 @@
-
-
-import { Platform } from 'react-native';
-
 // ---------------------------------------------------------------------------
 // KEYWORDS
 // ---------------------------------------------------------------------------
@@ -45,7 +41,7 @@ const MFG_KEYWORDS = [
 ];
 
 const DATE_REGEX =
-  /(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4})|(\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2})|(\d{1,2}[\/\-]\d{4})|(\d{1,2}[\/\-]\d{2}(?!\d))|(\d{1,2}\s*(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\.?\s*\d{2,4})|((?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\.?\s*\d{1,2}[,\s]+\d{2,4})|((?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\.?\s*\d{2,4})/gi;
+  /(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})|(\d{4}[/-]\d{1,2}[/-]\d{1,2})|(\d{1,2}[/-]\d{4})|(\d{1,2}[/-]\d{2}(?!\d))|(\d{1,2}\s*(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\.?\s*\d{2,4})|((?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\.?\s*\d{1,2}[,\s]+\d{2,4})|((?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)[A-Z]*\.?\s*\d{2,4})/gi;
 
 // ---------------------------------------------------------------------------
 // MONTH MAP — for parsing month-name dates
@@ -203,16 +199,11 @@ const lineContainsKeyword = (lineUpper, keywords) => {
 // ---------------------------------------------------------------------------
 export const extractDatesFromText = (rawText) => {
   if (!rawText || rawText.trim() === '') {
-    console.log('[ocrService] Empty text — nothing to extract');
     return { manufacturingDate: null, expiryDate: null };
   }
 
-  console.log('[ocrService] ── extractDatesFromText START ──');
-  console.log('[ocrService] Raw text:\n' + rawText);
-
   // ── STEP 1: Split into lines ─────────────────────────────────────────────
   const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean);
-  console.log('[ocrService] Lines count:', lines.length);
 
   let manufacturingDate = null;
   let expiryDate = null;
@@ -223,8 +214,6 @@ export const extractDatesFromText = (rawText) => {
     const lineUpper = line.toUpperCase();
     const datesInLine = extractDatesFromLine(lineUpper);
 
-    console.log(`[ocrService] Line ${i}: "${line}" → dates: [${datesInLine.join(', ')}]`);
-
     if (datesInLine.length === 0) {
       // No date on this line — but keyword might be here with date on NEXT line
       if (i < lines.length - 1) {
@@ -234,11 +223,9 @@ export const extractDatesFromText = (rawText) => {
         if (datesInNextLine.length > 0) {
           if (!expiryDate && lineContainsKeyword(lineUpper, EXPIRY_KEYWORDS)) {
             expiryDate = datesInNextLine[0];
-            console.log(`[ocrService] EXP keyword on line ${i}, date on line ${i + 1}: "${expiryDate}"`);
           }
           if (!manufacturingDate && lineContainsKeyword(lineUpper, MFG_KEYWORDS)) {
             manufacturingDate = datesInNextLine[0];
-            console.log(`[ocrService] MFG keyword on line ${i}, date on line ${i + 1}: "${manufacturingDate}"`);
           }
         }
       }
@@ -248,35 +235,27 @@ export const extractDatesFromText = (rawText) => {
     // Line has dates — check for keywords
     if (!expiryDate && lineContainsKeyword(lineUpper, EXPIRY_KEYWORDS)) {
       expiryDate = datesInLine[0];
-      console.log(`[ocrService] EXP detected on line ${i}: "${expiryDate}"`);
     }
 
     if (!manufacturingDate && lineContainsKeyword(lineUpper, MFG_KEYWORDS)) {
       manufacturingDate = datesInLine[0];
-      console.log(`[ocrService] MFG detected on line ${i}: "${manufacturingDate}"`);
     }
 
     // Early exit if both found
     if (manufacturingDate && expiryDate) break;
   }
 
-  console.log('[ocrService] After keyword scan — MFG:', manufacturingDate, '| EXP:', expiryDate);
-
   // ── STEP 3: Fallback — extract all dates, sort, assign ───────────────────
   if (!manufacturingDate || !expiryDate) {
-    console.log('[ocrService] Entering fallback logic...');
 
     // Collect all dates from full text
     const fullTextUpper = rawText.toUpperCase();
     const allDateStrings = extractDatesFromLine(fullTextUpper);
-    console.log('[ocrService] All dates in text:', allDateStrings);
 
     // Parse to Date objects and keep only valid ones
     const parsedDates = allDateStrings
       .map((ds) => ({ str: ds, date: parseToDate(ds) }))
       .filter((d) => d.date !== null && !isNaN(d.date.getTime()));
-
-    console.log('[ocrService] Valid parsed dates:', parsedDates.map((d) => d.str));
 
     // Sort oldest → newest
     parsedDates.sort((a, b) => a.date.getTime() - b.date.getTime());
@@ -286,24 +265,19 @@ export const extractDatesFromText = (rawText) => {
       (d, i, arr) => i === 0 || d.date.getTime() !== arr[i - 1].date.getTime(),
     );
 
-    console.log('[ocrService] Unique sorted dates:', uniqueDates.map((d) => d.str));
-
     if (uniqueDates.length === 1) {
       // ── STEP 7: Single date case → assign to expiryDate only ───────────
       if (!expiryDate) {
         expiryDate = uniqueDates[0].str;
-        console.log('[ocrService] Single date → EXP:', expiryDate);
       }
       // Do NOT assign to manufacturingDate — leave it empty
     } else if (uniqueDates.length >= 2) {
       // Oldest = MFG, newest = EXP
       if (!manufacturingDate) {
         manufacturingDate = uniqueDates[0].str;
-        console.log('[ocrService] Fallback MFG (oldest):', manufacturingDate);
       }
       if (!expiryDate) {
         expiryDate = uniqueDates[uniqueDates.length - 1].str;
-        console.log('[ocrService] Fallback EXP (newest):', expiryDate);
       }
     }
   }
@@ -314,7 +288,6 @@ export const extractDatesFromText = (rawText) => {
     expiryDate &&
     manufacturingDate === expiryDate
   ) {
-    console.log('[ocrService] ⚠ Same value in both fields! Clearing MFG.');
     manufacturingDate = null;
   }
 
@@ -323,15 +296,9 @@ export const extractDatesFromText = (rawText) => {
     const mfgDate = parseToDate(manufacturingDate);
     const expDate = parseToDate(expiryDate);
     if (mfgDate && expDate && mfgDate.getTime() === expDate.getTime()) {
-      console.log('[ocrService] ⚠ Same timestamp in both fields! Clearing MFG.');
       manufacturingDate = null;
     }
   }
-
-  console.log('[ocrService] ═══ FINAL RESULT ═══');
-  console.log('[ocrService] MFG:', manufacturingDate);
-  console.log('[ocrService] EXP:', expiryDate);
-  console.log('[ocrService] ── extractDatesFromText END ──');
 
   return { manufacturingDate, expiryDate };
 };
@@ -393,12 +360,7 @@ export const scanProduct = async (imageUri) => {
     throw new Error('imageUri is required');
   }
 
-  console.log('[ocrService] ══════════════════════════════════════════');
-  console.log('[ocrService] scanProduct START');
-  console.log('[ocrService] Image URI:', imageUri);
-
   const normalizedUri = normalizeImageUri(imageUri);
-  console.log('[ocrService] Normalized URI:', normalizedUri);
 
   const TextRecognition = getMLKit();
 
@@ -413,28 +375,12 @@ export const scanProduct = async (imageUri) => {
   }
 
   try {
-    console.log('[ocrService] Calling TextRecognition.recognize()...');
     const result = await TextRecognition.recognize(normalizedUri);
 
     const rawText = result?.text ?? '';
-    console.log('[ocrService] OCR text length:', rawText.length);
-    console.log('[ocrService] ──── OCR FULL TEXT ────');
-    console.log(rawText);
-    console.log('[ocrService] ──── END OCR TEXT ─────');
-
-    // Log blocks for debugging
-    if (result?.blocks) {
-      console.log('[ocrService] Blocks:', result.blocks.length);
-      result.blocks.forEach((block, i) => {
-        console.log(`[ocrService]   Block[${i}]: "${block.text}"`);
-      });
-    }
 
     // Extract dates from the OCR text
     const { manufacturingDate, expiryDate } = extractDatesFromText(rawText);
-
-    console.log('[ocrService] scanProduct END');
-    console.log('[ocrService] ══════════════════════════════════════════');
 
     return { rawText, manufacturingDate, expiryDate, notConfigured: false };
   } catch (err) {
@@ -444,3 +390,5 @@ export const scanProduct = async (imageUri) => {
     );
   }
 };
+
+

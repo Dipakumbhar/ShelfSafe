@@ -127,22 +127,31 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}>
 
         {/* Avatar + User Info */}
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials || 'U'}</Text>
           </View>
-          <Text style={styles.email}>{name || user?.email || 'Shopkeeper'}</Text>
-          {name ? <Text style={styles.emailSub}>{user?.email}</Text> : null}
+          <Text style={styles.email} numberOfLines={1} ellipsizeMode="tail">
+            {name || user?.email || 'Shopkeeper'}
+          </Text>
+          {name ? (
+            <Text style={styles.emailSub} numberOfLines={1} ellipsizeMode="tail">
+              {user?.email}
+            </Text>
+          ) : null}
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>{roleName}</Text>
           </View>
         </View>
 
         {/* Stats */}
-        <View style={styles.section}>
+        <View style={styles.statsSection}>
           <StatsWidget total={totalProducts} expiring={expiringSoon} expired={expiredItems} />
         </View>
 
@@ -278,8 +287,7 @@ const statsStyles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: Colors.white,
     borderRadius: 16,
-    paddingVertical: 18,
-    marginHorizontal: 16,
+    paddingVertical: 16,
     shadowColor: Colors.shadowColor,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -308,63 +316,70 @@ const modalStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.background },
-  container: { paddingBottom: 40 },
+  scroll: { flex: 1 },
+  container: { flexGrow: 1, paddingBottom: 120 },
 
   profileCard: {
     alignItems: 'center',
     backgroundColor: Colors.primary,
-    paddingTop: 32,
-    paddingBottom: 28,
+    paddingTop: 18,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
     marginBottom: 0,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: Colors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.16,
+    shadowRadius: 7,
+    elevation: 5,
   },
   avatarText: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: Colors.primary,
   },
   email: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
     color: Colors.white,
-    marginBottom: 4,
+    marginBottom: 2,
+    textAlign: 'center',
+    maxWidth: '92%',
   },
   emailSub: {
-    fontSize: 14,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.7)',
-    marginBottom: 10,
+    marginBottom: 8,
+    textAlign: 'center',
+    maxWidth: '92%',
   },
   roleBadge: {
     backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
-    marginTop: 8,
+    marginTop: 4,
   },
   roleText: {
     color: Colors.white,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
 
+  statsSection: { paddingHorizontal: 16, marginTop: 14 },
   section: { paddingHorizontal: 16, marginTop: 22 },
   sectionTitle: {
     fontSize: 12,

@@ -1,17 +1,3 @@
-/**
- * AddProductScreen.js
- *
- * Redesigned with:
- *  - DateTimePicker (calendar UI) for Manufacturing & Expiry Date
- *  - Correct OCR field mapping: MFG → manufacturingDate, EXP → expiryDate
- *  - Date order: Manufacturing Date first, then Expiry Date
- *  - Single top-level Scan button (no duplicate scan per field)
- *  - Promise-based launchCamera (react-native-image-picker v8+)
- *  - Runtime camera permission request on Android
- *  - Scanning loader/disabled state while OCR runs
- *  - Auto-fill + user-editable fields after scan
- *  - Clear error alerts for OCR failures
- */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
@@ -358,9 +344,7 @@ const DatePickerField = ({
   );
 };
 
-// ---------------------------------------------------------------------------
-// GENERIC TEXT FORM INPUT
-// ---------------------------------------------------------------------------
+
 const FormInput = ({
   label,
   placeholder,
@@ -471,12 +455,6 @@ const AddProductScreen = ({ navigation, route }) => {
         return;
       }
 
-      // ── DEBUG: Log captured image URI ──────────────────────────────────────
-      console.log('[AddProductScreen] ── SCAN PIPELINE START ──');
-      console.log('[AddProductScreen] Image URI:', asset.uri);
-      console.log('[AddProductScreen] Image type:', asset.type);
-      console.log('[AddProductScreen] Image size:', asset.fileSize, 'bytes');
-
       // ── Start OCR ─────────────────────────────────────────────────────────
       setScanning(true);
       setScanMsg('');
@@ -489,12 +467,6 @@ const AddProductScreen = ({ navigation, route }) => {
           rawText,
           notConfigured,
         } = await scanProduct(asset.uri);
-
-        // ── DEBUG: Log OCR results ────────────────────────────────────────
-        console.log('[AddProductScreen] OCR notConfigured:', notConfigured);
-        console.log('[AddProductScreen] OCR raw text:', rawText);
-        console.log('[AddProductScreen] OCR raw MFG:', mfgRaw);
-        console.log('[AddProductScreen] OCR raw EXP:', expRaw);
 
         // ML Kit not yet linked (needs native rebuild)
         if (notConfigured) {
@@ -522,10 +494,6 @@ const AddProductScreen = ({ navigation, route }) => {
         const parsedMfg = parseOCRDate(mfgRaw);
         const parsedExp = parseOCRDate(expRaw);
 
-        // ── DEBUG: Log parsed dates ───────────────────────────────────────
-        console.log('[AddProductScreen] Parsed MFG Date:', parsedMfg);
-        console.log('[AddProductScreen] Parsed EXP Date:', parsedExp);
-
         // Apply only the detected dates (keep existing values if not found)
         setForm((prev) => ({
           ...prev,
@@ -543,7 +511,6 @@ const AddProductScreen = ({ navigation, route }) => {
           if (parsedExp) parts.push(`EXP: ${formatDate(parsedExp)}`);
           setScanMsg(`Detected — ${parts.join('  ·  ')}`);
           setScanStatus('success');
-          console.log('[AddProductScreen] ✅ Scan success:', parts.join(' | '));
         } else {
           // Text found but no recognisable dates
           console.warn('[AddProductScreen] Text found but no dates parsed. Raw text:', rawText);
@@ -555,7 +522,6 @@ const AddProductScreen = ({ navigation, route }) => {
           setScanStatus('warn');
           setScanMsg('No dates found — please enter manually.');
         }
-        console.log('[AddProductScreen] ── SCAN PIPELINE END ──');
       } catch (ocrErr) {
         console.error('[AddProductScreen] OCR error:', ocrErr);
         console.error('[AddProductScreen] OCR error message:', ocrErr?.message);
@@ -707,7 +673,7 @@ const AddProductScreen = ({ navigation, route }) => {
               <ActivityIndicator
                 size="small"
                 color={Colors.accent}
-                style={{ marginLeft: 12 }}
+                style={scanStyles.scanLoading}
               />
             ) : (
               <TouchableOpacity
@@ -750,7 +716,7 @@ const AddProductScreen = ({ navigation, route }) => {
               <View style={scanStyles.hintContent}>
                 <Icon name={ICONS.lightbulb} size={14} color="rgba(255,255,255,0.65)" style={scanStyles.hintIcon} />
                 <Text style={scanStyles.hintText}>
-                  Tap <Text style={{ fontWeight: '700' }}>Scan</Text> to open the camera and auto-detect dates from the product label.
+                  Tap <Text style={scanStyles.hintTextStrong}>Scan</Text> to open the camera and auto-detect dates from the product label.
                 </Text>
               </View>
             </View>
@@ -866,7 +832,7 @@ const AddProductScreen = ({ navigation, route }) => {
           {form.manufacturingDate && form.expiryDate && (
             <View style={styles.dateHintRow}>
               <Text style={styles.dateHintText}>
-                <Icon name={ICONS.shelfLife} size={14} color={Colors.info} style={{ marginRight: 4 }} />Shelf life:{' '}
+                <Icon name={ICONS.shelfLife} size={14} color={Colors.info} style={styles.dateHintIcon} />Shelf life:{' '}
                 {Math.ceil(
                   (new Date(form.expiryDate) - new Date(form.manufacturingDate)) /
                   (1000 * 60 * 60 * 24),
@@ -982,6 +948,7 @@ const scanStyles = StyleSheet.create({
     elevation: 4,
   },
   scanBtnText: { color: Colors.white, fontSize: 14, fontWeight: '700' },
+  scanLoading: { marginLeft: 12 },
 
   msgBox: {
     flexDirection: 'row',
@@ -1148,6 +1115,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
+  dateHintIcon: { marginRight: 4 },
   dateHintText: { fontSize: 12, color: Colors.info, fontWeight: '500' },
 
   submitBtn: {
@@ -1177,3 +1145,5 @@ const styles = StyleSheet.create({
 });
 
 export default AddProductScreen;
+
+

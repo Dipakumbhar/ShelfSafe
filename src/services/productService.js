@@ -44,11 +44,7 @@ export const parseExpiryDate = (dateStr = '') => {
   return null;
 };
 
-/**
- * Given an expiry date string, compute:
- *   - daysLeft  (negative = already expired)
- *   - status    'fresh' | 'expiring' | 'expired'
- */
+
 export const computeStatus = (expiryDateStr) => {
   const expiry = parseExpiryDate(expiryDateStr);
   if (!expiry) return { daysLeft: null, status: 'fresh' };

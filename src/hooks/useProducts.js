@@ -34,7 +34,7 @@ const useProducts = () => {
         setLoading(false);
         setError(null);
       },
-      (err) => {
+      () => {
         setError('Failed to load products. Please try again.');
         setLoading(false);
       },

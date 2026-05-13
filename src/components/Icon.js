@@ -1,12 +1,12 @@
 /**
- * Icon â€” Reusable vector icon component
+ * Icon — Reusable vector icon component
  *
  * Uses MaterialIcons from react-native-vector-icons.
  * Falls back gracefully if the package is not linked.
  */
 
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
 import Colors from '../constants/Colors';
 
 let MaterialIcons = null;
@@ -22,10 +22,16 @@ const Icon = ({ name, size = 24, color = Colors.textSecondary, style }) => {
   }
   // Fallback: render a neutral dot if vector icons unavailable
   return (
-    <Text style={[{ fontSize: size - 4, color, textAlign: 'center' }, style]}>
-      â€¢
+    <Text style={[styles.fallbackDot, { fontSize: size - 4, color }, style]}>
+      •
     </Text>
   );
 };
+
+const styles = StyleSheet.create({
+  fallbackDot: {
+    textAlign: 'center',
+  },
+});
 
 export default React.memo(Icon);
