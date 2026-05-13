@@ -1,6 +1,6 @@
 // src/hooks/useProducts.js
-import { useState, useEffect } from 'react';
-import { subscribeToProducts } from '../services/productService';
+import { useState, useEffect, useCallback } from 'react';
+import { subscribeToProducts, fetchProducts } from '../services/productService';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -17,6 +17,17 @@ const useProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const refresh = useCallback(async () => {
+    if (!user?.uid) return;
+    try {
+      const freshProducts = await fetchProducts(user.uid);
+      setProducts(freshProducts);
+      setError(null);
+    } catch (_) {
+      setError('Failed to load products. Please try again.');
+    }
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -44,7 +55,7 @@ const useProducts = () => {
     return () => unsubscribe();
   }, [user?.uid]);
 
-  return { products, loading, error };
+  return { products, loading, error, refresh };
 };
 
 export default useProducts;

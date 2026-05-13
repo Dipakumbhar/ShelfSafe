@@ -1,3 +1,9 @@
+import { Platform } from 'react-native';
+import PushNotification from 'react-native-push-notification';
+
+const CHANNEL_ID = 'shelfsafe-expiry-alerts';
+const CHANNEL_NAME = 'Expiry Alerts';
+const CHANNEL_DESC = 'Notifications for products approaching their expiry date';
 
 /** How many days before expiry to send the alert */
 const ALERT_DAYS_BEFORE = 2;

@@ -68,6 +68,36 @@ export const computeStatus = (expiryDateStr) => {
   return { daysLeft, status };
 };
 
+const getTimestampMs = (value) => {
+  if (!value) return 0;
+  if (typeof value?.toMillis === 'function') {
+    return value.toMillis();
+  }
+  if (typeof value?.toDate === 'function') {
+    return value.toDate().getTime();
+  }
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
+
+const normalizeProductDoc = (doc) => {
+  const data = doc.data();
+  const { daysLeft, status } = computeStatus(data.expiryDate);
+  return {
+    id: doc.id,
+    ...data,
+    daysLeft,
+    status,
+  };
+};
+
+const sortProductsNewestFirst = (items) =>
+  [...items].sort((a, b) => {
+    const bMs = getTimestampMs(b.createdAt) || getTimestampMs(b.updatedAt);
+    const aMs = getTimestampMs(a.createdAt) || getTimestampMs(a.updatedAt);
+    return bMs - aMs;
+  });
+
 // ---------------------------------------------------------------------------
 // WRITE
 // ---------------------------------------------------------------------------
@@ -176,6 +206,16 @@ export const updateProduct = async (productId, formData, notificationsEnabled = 
   return notifResult;
 };
 
+export const fetchProducts = async (shopkeeperId) => {
+  const snapshot = await firestore()
+    .collection(PRODUCTS_COLLECTION)
+    .where('shopkeeperId', '==', shopkeeperId)
+    .get();
+
+  const products = snapshot.docs.map(normalizeProductDoc);
+  return sortProductsNewestFirst(products);
+};
+
 // ---------------------------------------------------------------------------
 // READ — Real-time listener
 // ---------------------------------------------------------------------------
@@ -196,20 +236,9 @@ export const subscribeToProducts = (shopkeeperId, onData, onError) => {
   const unsubscribe = firestore()
     .collection(PRODUCTS_COLLECTION)
     .where('shopkeeperId', '==', shopkeeperId)
-    .orderBy('createdAt', 'desc')
     .onSnapshot(
       (snapshot) => {
-        const products = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          // Recompute live status based on today's date
-          const { daysLeft, status } = computeStatus(data.expiryDate);
-          return {
-            id: doc.id,
-            ...data,
-            daysLeft,
-            status,
-          };
-        });
+        const products = sortProductsNewestFirst(snapshot.docs.map(normalizeProductDoc));
         onData(products);
       },
       (error) => {
