@@ -5,7 +5,7 @@
  * not replace, screen-specific StyleSheet blocks.
  */
 
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Colors from './Colors';
 
 const SharedStyles = StyleSheet.create({

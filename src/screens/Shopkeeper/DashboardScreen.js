@@ -40,9 +40,11 @@ const DashboardScreen = ({ navigation }) => {
       <ScrollView contentContainerStyle={styles.container}>
         {/* Welcome Banner */}
         <View style={styles.banner}>
-          <View>
+          <View style={styles.bannerContent}>
             <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.userName}>{user?.email}</Text>
+            <Text style={styles.userName} numberOfLines={1} ellipsizeMode="tail">
+              {user?.email}
+            </Text>
           </View>
           <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
             <Icon name={ICONS.logout} size={16} color={Colors.white} style={styles.logoutIcon} />
@@ -79,7 +81,7 @@ const DashboardScreen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.actionBtn}
           onPress={() => navigation.navigate('AddTab')}>
-          <View style={[styles.actionBtnIcon, { backgroundColor: '#EBF9F1' }]}>
+          <View style={[styles.actionBtnIcon, styles.actionBtnIconAccent]}>
             <Icon name={ICONS.addProduct} size={22} color={Colors.accent} />
           </View>
           <View style={styles.actionBtnContent}>
@@ -116,14 +118,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.primary,
     borderRadius: 16,
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginBottom: 24,
   },
+  bannerContent: {
+    flex: 1,
+    minWidth: 0,
+    marginRight: 12,
+    justifyContent: 'center',
+  },
   welcomeText: { color: 'rgba(255,255,255,0.75)', fontSize: 13 },
-  userName: { color: Colors.white, fontSize: 20, fontWeight: '700', marginTop: 2 },
+  userName: { color: Colors.white, fontSize: 20, fontWeight: '700', marginTop: 2, flexShrink: 1 },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
     backgroundColor: 'rgba(255,255,255,0.15)',
     paddingHorizontal: 14,
     paddingVertical: 7,
@@ -165,6 +176,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
+  actionBtnIconAccent: { backgroundColor: '#EBF9F1' },
   actionBtnContent: { flex: 1 },
   actionBtnTitle: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary },
   actionBtnSub: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },

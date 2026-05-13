@@ -12,13 +12,6 @@ import Colors from '../../constants/Colors';
 import Icon from '../../components/Icon';
 import ICONS from '../../constants/Icons';
 
-const InfoRow = ({ label, value, valueColor }) => (
-  <View style={styles.infoRow}>
-    <Text style={styles.infoLabel}>{label}</Text>
-    <Text style={[styles.infoValue, valueColor && { color: valueColor }]}>{value}</Text>
-  </View>
-);
-
 const ShopDetailScreen = ({ route, navigation }) => {
   const { shopId } = route.params;
   const shop = MOCK_SHOPS.find((s) => s.id === shopId);
@@ -82,7 +75,7 @@ const ShopDetailScreen = ({ route, navigation }) => {
           <Text style={styles.cardTitle}>Compliance Status</Text>
           <View style={[
             styles.complianceBadge,
-            { backgroundColor: isCompliant ? '#EBF9F1' : '#FDECEA' },
+            isCompliant ? styles.complianceBadgeOk : styles.complianceBadgeFail,
           ]}>
             <View style={styles.complianceContent}>
               <Icon
@@ -208,6 +201,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 14, fontWeight: '700', color: Colors.primary, marginBottom: 14 },
   complianceBadge: { borderRadius: 10, padding: 14 },
+  complianceBadgeOk: { backgroundColor: '#EBF9F1' },
+  complianceBadgeFail: { backgroundColor: '#FDECEA' },
   complianceContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -260,15 +255,6 @@ const styles = StyleSheet.create({
   backBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '600' },
   notFound: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   notFoundText: { color: Colors.textMuted, fontSize: 16 },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-  },
-  infoLabel: { fontSize: 13, color: Colors.textSecondary },
-  infoValue: { fontSize: 13, fontWeight: '600', color: Colors.textPrimary },
 });
 
 export default ShopDetailScreen;

@@ -69,7 +69,7 @@ const MyShopScreen = ({ navigation }) => {
           <View style={styles.inputRow}>
             <Icon name={ICONS.location || 'location-on'} size={18} color={Colors.textMuted} style={styles.icon} />
             <TextInput
-              style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+              style={[styles.input, styles.addressInput]}
               value={shopAddress}
               onChangeText={setShopAddress}
               placeholder="Enter full address"
@@ -135,6 +135,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.textPrimary,
   },
+  addressInput: { height: 80, textAlignVertical: 'top' },
   saveBtn: {
     backgroundColor: Colors.primary,
     paddingVertical: 16,
